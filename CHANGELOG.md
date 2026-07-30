@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - POC-2: confirmed OSV has no Ansible ecosystem, and that the gap surfaces as zero findings
   rather than as an error
 - Go module scaffold, Apache-2.0 licence, pre-commit quality gate
+- Upstream cataloger proposal opened at anchore/syft#5129

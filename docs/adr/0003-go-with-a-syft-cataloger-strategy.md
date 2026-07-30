@@ -101,4 +101,5 @@ this author's projects.
 
 - [SPARK analysis](../inception/spark-analysis.md) — technology options, distribution reasoning
 - [syft](https://github.com/anchore/syft) — cataloger interface and examples
+- [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) — the upstream proposal, opened 2026-07-31. Its outcome determines whether the distribution advantage this ADR rests on is actually available
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)

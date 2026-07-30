@@ -338,7 +338,7 @@ exchange for distribution reach.
 
 | Gap | Impact if unfilled | Approach |
 |---|---|---|
-| syft maintainers' appetite for an Ansible cataloger | decides the strategic distribution path | open a proposal issue before writing much code |
+| syft maintainers' appetite for an Ansible cataloger | decides the strategic distribution path | **Proposal opened 2026-07-31: [anchore/syft#5129](https://github.com/anchore/syft/issues/5129).** Gap now blocked on their reply, not on our action |
 | How tarball- and local-path-installed content differs on disk | parser misses a source type | install one of each into a scratch tree |
 | Whether collection GPG signature data is retrievable post-install | blocks the deferred attestation work | read `ansible-galaxy collection verify` internals |
 | Execution Environment image layout | shapes the deferred EE input | inspect a built EE |
@@ -491,7 +491,7 @@ Consequences to manage:
    commit: no internal identifiers, hostnames or paths anywhere in history.
 5. First project ADRs: provisional `pkg:ansible` purl construction and the 1.0 gate (R4); the
    collection/role two-tier model (R2); Go and the syft-cataloger strategy.
-6. Open the syft proposal issue.
+6. ~~Open the syft proposal issue.~~ **Done 2026-07-31** — [anchore/syft#5129](https://github.com/anchore/syft/issues/5129). Awaiting maintainer response on two output-contract questions: how syft handles an ecosystem whose purl type is proposed but unmerged, and whether it can express "no integrity data exists" as distinct from "not collected".
 
 ### Open questions
 
