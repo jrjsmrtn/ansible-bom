@@ -1,0 +1,5 @@
+galaxy_info:
+  author: local
+  description: A role that lives only in this repository
+  license: MIT
+dependencies: []
