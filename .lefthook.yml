@@ -12,7 +12,13 @@ pre-commit:
       run: gitleaks protect --staged --verbose
     gofmt:
       glob: "*.go"
-      run: test -z "$(gofmt -l {staged_files})" || { gofmt -l {staged_files}; echo 'gofmt: files need formatting'; exit 1; }
+      run: |
+        unformatted=$(gofmt -l {staged_files})
+        if [ -n "$unformatted" ]; then
+          echo "gofmt needed for:"
+          echo "$unformatted"
+          exit 1
+        fi
     vet:
       glob: "*.go"
       run: go vet ./...
