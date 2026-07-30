@@ -1,0 +1,21 @@
+# Quality gates for ansible-bom.
+#
+# Single stage — the checks are fast enough that a pre-push split would add ceremony without
+# saving time. See ADR-0002 §6.
+#
+# Install with: lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --verbose
+    gofmt:
+      glob: "*.go"
+      run: test -z "$(gofmt -l {staged_files})" || { gofmt -l {staged_files}; echo 'gofmt: files need formatting'; exit 1; }
+    vet:
+      glob: "*.go"
+      run: go vet ./...
+    test:
+      glob: "*.go"
+      run: go test ./...
