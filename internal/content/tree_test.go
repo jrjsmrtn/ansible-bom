@@ -144,3 +144,27 @@ func TestScanRealTree(t *testing.T) {
 		}
 	}
 }
+
+// An .info marker is positive evidence of an ansible-galaxy install. Its absence is not evidence
+// of anything — a real control node had a marker-less collection that was declared as an ordinary
+// Galaxy collection, alongside two genuinely git-sourced ones.
+func TestScanUsesInfoMarkersAsAnOriginSignal(t *testing.T) {
+	inv, err := Scan(filepath.Join("testdata", "tree"))
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	want := map[string]Origin{
+		"community.general": OriginGalaxy,  // has a .info marker
+		"community.windows": OriginUnknown, // none — origin genuinely unknown, never guessed as git
+		"example.widget":    OriginUnknown,
+	}
+	for _, c := range inv.Components {
+		if c.Kind != KindCollection {
+			continue
+		}
+		if w, ok := want[c.FQN()]; ok && c.Origin != w {
+			t.Errorf("%s: Origin = %q, want %q", c.FQN(), c.Origin, w)
+		}
+	}
+}

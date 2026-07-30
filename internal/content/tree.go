@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // CollectionsDirName is the directory ansible-galaxy installs collections into.
@@ -18,8 +19,9 @@ const RolesDirName = "roles"
 //
 // The layout is <root>/<namespace>/<name>/. Namespace directories also contain
 // "<ns>.<name>-<version>.info" marker directories written by ansible-galaxy; those are siblings of
-// the namespace directories rather than of the collections, and are ignored — the version they
-// encode is already in MANIFEST.json, which is authoritative.
+// the namespace directories rather than of the collections, and are not inventoried — the version
+// they encode is already in MANIFEST.json, which is authoritative. They are read only as an origin
+// signal, per installMarkers.
 func ScanCollections(root string) (Inventory, error) {
 	var inv Inventory
 
@@ -27,6 +29,8 @@ func ScanCollections(root string) (Inventory, error) {
 	if err != nil {
 		return inv, fmt.Errorf("reading %s: %w", root, err)
 	}
+
+	markers := installMarkers(entries)
 
 	for _, ns := range entries {
 		if !ns.IsDir() || filepath.Ext(ns.Name()) == ".info" {
@@ -52,12 +56,38 @@ func ScanCollections(root string) (Inventory, error) {
 				inv.Problems = append(inv.Problems, Problem{Path: dir, Reason: err.Error()})
 				continue
 			}
+			if markers[c.FQN()] {
+				c.Origin = OriginGalaxy
+			}
 			inv.Components = append(inv.Components, c)
 		}
 	}
 
 	inv.sort()
 	return inv, nil
+}
+
+// installMarkers returns the set of collections that have an "<ns>.<name>-<version>.info" marker
+// directory, which ansible-galaxy writes alongside namespace directories.
+//
+// Presence is positive evidence of an ansible-galaxy install. Absence is NOT evidence of a git
+// source: on a real control node, three collections lacked a marker — two genuinely installed from
+// git, and one declared as an ordinary Galaxy collection. So a missing marker leaves the origin
+// unknown rather than making it git. Overstating provenance would be worse than admitting
+// ignorance.
+func installMarkers(entries []os.DirEntry) map[string]bool {
+	markers := map[string]bool{}
+	for _, e := range entries {
+		if !e.IsDir() || filepath.Ext(e.Name()) != ".info" {
+			continue
+		}
+		base := strings.TrimSuffix(e.Name(), ".info")
+		// "<ns>.<name>-<version>" — the version is whatever follows the last hyphen.
+		if i := strings.LastIndex(base, "-"); i > 0 {
+			markers[base[:i]] = true
+		}
+	}
+	return markers
 }
 
 // ScanRoles inventories a roles directory. The layout is <root>/<role>/, where a role is any

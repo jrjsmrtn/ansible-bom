@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser fixtures captured from real installed content, with provenance recorded in
   `internal/content/testdata/README.md`
 - `ANSIBLE_BOM_REAL_TREE` env-guarded test for running the parser against a real control node
+- `internal/lockfile`: lockfile rendering and an installable `requirements.yml` projection
+  - unversioned content is recorded as `unpinnable`, never dropped and never given an invented
+    version — a lockfile that omits it would overstate the reproducibility it provides
+  - per-collection content digest over the file manifest, so a version republished with different
+    content is detectable; roles get none, because nothing exists to derive one from
+  - the header states what the file does not assert, where a reader will see it
+- `ansible-bom lock` command, with `--output`, `--requirements` and `--fail-on-problems`
+- collection origin inferred from `.info` install markers: presence means Galaxy, absence means
+  unknown rather than git
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one

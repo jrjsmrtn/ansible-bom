@@ -4,8 +4,8 @@
 node — collections *and* legacy roles — and produces the lockfile Ansible Galaxy never shipped, a
 drift report against your `requirements.yml`, and a CycloneDX bill of materials.
 
-> **Status: pre-release (0.x).** Not yet usable. This repository currently contains the design
-> analysis and decision records. See [Roadmap](#roadmap).
+> **Status: pre-release (0.x).** `lock` works; the rest is not built yet. Component identifiers
+> are provisional until v1.0 — see [Design notes](#design-notes) and [Roadmap](#roadmap).
 
 ---
 
@@ -68,7 +68,7 @@ identifiers that may still change.
 
 | Milestone | Content |
 |---|---|
-| 0.1 | Collection + role inventory; `lock` |
+| 0.1 | Collection + role inventory; `lock` — **done** |
 | 0.2 | `drift` against `requirements.yml` |
 | 0.3 | `scan` — CycloneDX output |
 | 0.4 | `verify`; syft cataloger |
