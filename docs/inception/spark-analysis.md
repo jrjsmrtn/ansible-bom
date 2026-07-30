@@ -310,9 +310,13 @@ exchange for distribution reach.
   (`ansible/galaxy-issues#165`, `ansible/galaxy#1358`) in trackers now archived; **mazer**
   implemented the feature and was itself abandoned in 2020. No confirmed "closed as not planned"
   decision exists — the feature was orphaned, not refused.
-- **`ansible-galaxy` is not extensible.** Ansible's plugin types serve playbook execution; the
-  Galaxy CLI is a fixed subcommand set in `ansible-core` with no documented extension point.
-  (Negative evidence — worth direct confirmation.)
+- **`ansible-galaxy` is not extensible** — confirmed 2026-07-31 against `ansible-core` 2.20.0
+  source. Subcommands are hardcoded `add_parser()` calls dispatching to bound
+  `execute_<action>` methods; no plugin loader or entry-point machinery is imported; the package
+  declares only `console_scripts`; and every plugin type under `ansible/plugins/` is a
+  playbook-execution concern. The similarly-named `galaxy_server` "plugin type" is config-only —
+  it names servers, it does not add behaviour. See
+  [ADR-0003](../adr/0003-go-with-a-syft-cataloger-strategy.md).
 - purl has **no `ansible` type**; PR #854 is open with one approval and one changes-requested, and
   live disagreement over `vcs_url` syntax and whether `packaging` should defer to rpm/deb types.
 - Collections carry `MANIFEST.json` + `FILES.json` with **sha256 on every regular file**,
@@ -484,8 +488,9 @@ Consequences to manage:
 1. ~~POC-2: query OSV for a known collection.~~ **Done 2026-07-31** — assumption confirmed, plus
    the silent-zero finding now recorded as ADR-0006.
 2. ~~Decide the final project name.~~ **Done** — `ansible-bom` (see [Naming](#naming)).
-3. Confirm directly that `ansible-galaxy` has no subcommand extension point, so the standalone-tool
-   assumption is not resting on negative evidence alone.
+3. ~~Confirm directly that `ansible-galaxy` has no subcommand extension point.~~ **Done
+   2026-07-31** — confirmed from `ansible-core` 2.20.0 source; the finding no longer rests on
+   negative evidence.
 4. `bootstrap-project` at **t1**, category Development, CLI tool, Go. Distribution profile
    **Private initially, Public once stable** — keep the repository publishable from the first
    commit: no internal identifiers, hostnames or paths anywhere in history.

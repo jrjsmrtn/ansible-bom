@@ -21,9 +21,23 @@ decisive question is **distribution**, not language ergonomics.
 
 Two findings from the [SPARK analysis](../inception/spark-analysis.md) constrain the answer:
 
-- **`ansible-galaxy` is not extensible.** Ansible's plugin types serve playbook execution; the
-  Galaxy CLI is a fixed subcommand set in `ansible-core` with no documented extension point. There
-  is no `ansible-galaxy lock` plugin path. *(Negative evidence — see Consequences.)*
+- **`ansible-galaxy` is not extensible.** Confirmed against `ansible-core` 2.20.0 source
+  (2026-07-31), not inferred from missing documentation:
+  - `cli/galaxy.py:init_parser()` constructs every subcommand with an explicit `add_parser()`
+    call — `collection`, `role`, and the actions `download`, `init`, `remove`, `delete`, `list`,
+    `search`, `import`, `setup`, `info`, `verify`, `install`, `build`, `publish`. No registry, no
+    iteration, no discovery.
+  - Dispatch is `set_defaults(func=self.execute_<action>)` — bound methods resolved when the
+    parser is built. Nothing is looked up by name at runtime.
+  - `galaxy.py` imports no plugin loader, `entry_point`, `importlib.metadata` or `pkg_resources`
+    machinery.
+  - `ansible-core` declares only `console_scripts` entry points; there is no extension group.
+  - `ansible/plugins/` contains action, become, cache, callback, cliconf, connection,
+    doc_fragments, filter, httpapi, inventory, lookup, netconf, shell, strategy, terminal, test,
+    vars — every one a playbook-execution concern. None is CLI- or command-related.
+  - **The one galaxy-named plugin type is a false lead**: `galaxy_server` is config-only. It
+    defines *which servers to talk to* via `[galaxy_server.<name>]` ini sections; there is no
+    `plugins/galaxy_server/` directory and it contributes no behaviour.
 - **syft is extensible**, via a documented cataloger interface (`syft/cataloger`,
   `generic.Cataloger`, and a `create_custom_sbom` example), and ships 61 package catalogers
   including IaC precedents — `terraform-lock-cataloger`, `github-actions-usage-cataloger`,
@@ -84,9 +98,10 @@ this author's projects.
 - A less mature CycloneDX library; some emission may need hand-rolling.
 - Coupling to syft's cataloger interface, which is not a stability-guaranteed API — a breaking
   change upstream would mean adapter work.
-- **The `ansible-galaxy` non-extensibility finding is negative evidence** — absence of any
-  documented hook, not a statement that extension is unsupported. If a mechanism exists and was
-  missed, the Python option becomes materially stronger and this ADR should be revisited.
+- Extending `ansible-galaxy` is not merely undocumented but structurally unavailable, so the
+  lockfile and drift capabilities must ship as a separate tool no matter which language is
+  chosen. This closes the caveat this ADR originally carried: the Python option cannot be
+  rehabilitated by an extension point, because none exists.
 
 **Risks**:
 

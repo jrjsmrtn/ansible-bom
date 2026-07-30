@@ -20,3 +20,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than as an error
 - Go module scaffold, Apache-2.0 licence, pre-commit quality gate
 - Upstream cataloger proposal opened at anchore/syft#5129
+- Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
+  upgrading a negative-evidence finding to a verified one
