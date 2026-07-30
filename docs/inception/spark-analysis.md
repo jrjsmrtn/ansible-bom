@@ -274,7 +274,7 @@ exchange for distribution reach.
 
 | ID | Risk | Category | Likelihood | Impact | Score | Mitigation |
 |---|---|---|---|---|---|---|
-| R1 | No OSV coverage for Ansible → BOM enables no vulnerability matching | Technical | H | M | **High** | Lead on reproducibility, drift and attestation; treat scanner support as upside |
+| R1 | No OSV coverage for Ansible → BOM enables no vulnerability matching, **and scanners report the gap as zero findings rather than as unknown** | Technical | **Confirmed** (POC-2) | M | **High** | Lead on idempotency, reproducibility, drift and attestation; declare coverage status per component ([ADR-0006](../adr/0006-declare-vulnerability-coverage-status.md)) |
 | R2 | Roles cannot be given integrity data that does not exist | Technical | H (certain) | M | **High** | Explicit two-tier model; surface the gap in output rather than hiding it |
 | R3 | syft upstream proposal stalls or is declined | External | M | M | Med | Library path ships regardless; upstreaming is an accelerator, not a dependency |
 | R4 | purl `ansible` type changes or is rejected | External | M | M | Med | **Handled by release gating rather than mitigation** — 1.0 waits on the type being approved *and* implemented (see Synthesis). 0.x ships with provisional identifiers, constructed in one function, avoiding the contested `vcs_url` qualifier |
@@ -329,7 +329,7 @@ exchange for distribution reach.
 
 | Assumption | Basis | How to validate | Priority |
 |---|---|---|---|
-| OSV has no Ansible/Galaxy ecosystem | absent from the ecosystem list | query the OSV API for a known collection | **High** — sets the value proposition |
+| ~~OSV has no Ansible/Galaxy ecosystem~~ | — | — | **Confirmed 2026-07-31 — see POC-2 below** |
 | Dependency-Track ingests components with an unregistered purl type | it accepts arbitrary purl strings | upload a sample BOM | High |
 | A syft cataloger can emit components with a non-standard purl type | syft does not appear to constrain purl types | prototype against the library | High |
 | Reinstalling from an emitted lockfile is reproducible | `ansible-galaxy` is deterministic given exact versions | install to a temp tree and compare | Medium |
@@ -348,9 +348,39 @@ exchange for distribution reach.
 | POC | Purpose | Success criteria | Effort |
 |---|---|---|---|
 | **POC-1 — parse a real tree** | validate against messy reality | accurate component list including transitive, git-sourced and role entries | Hours. *Largely done during this analysis; metadata questions resolved.* |
-| **POC-2 — OSV coverage query** | settle the value proposition | definitive answer | Minutes |
+| **POC-2 — OSV coverage query** | settle the value proposition | definitive answer | **Done 2026-07-31 — see below** |
 | **POC-3 — syft cataloger spike** | prove the strategic path | a custom cataloger emitting one Ansible component through syft | 1–2 days |
 | POC-4 — Dependency-Track round-trip | confirm output is useful, not merely valid | components ingest with identity intact | Half a day |
+
+### POC-2 result — OSV coverage (executed 2026-07-31)
+
+**Confirmed: OSV has no Ansible ecosystem, and it fails silently.**
+
+| Query | Result |
+|---|---|
+| `pkg:pypi/ansible-core@2.16.0` *(control)* | 12 advisories — the API call is correct |
+| `pkg:ansible/community.general@11.4.0` | `{}` — **empty, not an error** |
+| `{"name":"community.general","ecosystem":"Ansible"}` | `invalid ecosystem` |
+| `{"name":"community.general","ecosystem":"Galaxy"}` | `invalid ecosystem` |
+| OSV schema ecosystem list | zero occurrences of "ansible" or "galaxy" |
+
+Two consequences, one of them unanticipated:
+
+1. **The value framing holds.** No scanner will match Ansible collections or roles. Reproducibility,
+   idempotency, drift and attestation are the deliverables; vulnerability matching is not
+   available and should never be implied.
+2. **The failure mode is worse than absence — it is silent.** An unregistered purl type returns an
+   empty result set, indistinguishable from "queried and clean". A Dependency-Track dashboard
+   showing *0 vulnerabilities* against Ansible components does not mean they are safe; it means
+   nobody looked. Nothing in the pipeline says so.
+
+This is the same class of hazard as the collection/role assurance gap: output that reads as
+assurance when it means *unknown*. It is compounded by **mixed coverage within one document** —
+a control node's Python components (`pkg:pypi/ansible-core`) *are* covered and will show real
+findings, sitting in the same BOM beside collection components that are structurally incapable of
+showing any. A document-level disclaimer cannot express that; it has to be per component.
+
+Recorded as [ADR-0006](../adr/0006-declare-vulnerability-coverage-status.md).
 
 ---
 
@@ -451,7 +481,8 @@ Consequences to manage:
 
 ### Immediate next steps
 
-1. POC-2: query OSV for a known collection.
+1. ~~POC-2: query OSV for a known collection.~~ **Done 2026-07-31** — assumption confirmed, plus
+   the silent-zero finding now recorded as ADR-0006.
 2. ~~Decide the final project name.~~ **Done** — `ansible-bom` (see [Naming](#naming)).
 3. Confirm directly that `ansible-galaxy` has no subcommand extension point, so the standalone-tool
    assumption is not resting on negative evidence alone.

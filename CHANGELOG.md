@@ -15,5 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - SPARK inception analysis, measured against a real Ansible control node
 - Audience registry covering seven audiences across four Diátaxis categories
-- Foundation ADRs (0001–0003) and decision ADRs (0004–0005)
+- Foundation ADRs (0001–0003) and decision ADRs (0004–0006)
+- POC-2: confirmed OSV has no Ansible ecosystem, and that the gap surfaces as zero findings
+  rather than as an error
 - Go module scaffold, Apache-2.0 licence, pre-commit quality gate

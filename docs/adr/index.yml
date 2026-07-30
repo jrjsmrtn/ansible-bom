@@ -36,6 +36,12 @@ decisions:
     purpose: DATA MODEL
     status: Accepted
     date: 2026-07-31
+  - id: 6
+    file: 0006-declare-vulnerability-coverage-status.md
+    title: Declare Vulnerability-Coverage Status Per Component
+    purpose: OUTPUT CONTRACT
+    status: Accepted
+    date: 2026-07-31
 
 # No operations ADR (HOW TO OPERATE): the category is Development and the tool operates nothing —
 # it is a stateless CLI invoked from CI. The foundational sequence therefore ends at 0003, and
