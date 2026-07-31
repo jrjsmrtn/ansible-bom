@@ -153,6 +153,8 @@ this author's projects.
 
 ## References
 
+- [Quality configuration reference](../reference/quality-configuration.md) — the three Go versions
+  in play, where each is configured, and the twice-yearly bump obligation
 - [SPARK analysis](../inception/spark-analysis.md) — technology options, distribution reasoning
 - [syft](https://github.com/anchore/syft) — cataloger interface and examples
 - [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) — the upstream proposal, opened 2026-07-31. Its outcome determines whether the distribution advantage this ADR rests on is actually available

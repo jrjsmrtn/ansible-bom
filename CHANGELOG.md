@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SPDX headers on all 25 Go source files
 - CodeQL analysis workflow
 - README install instructions, quick start, badges and contribution pointers
+- `docs/reference/quality-configuration.md`: single source of truth for toolchain versions,
+  quality gates and formatting — including the three distinct Go versions, which of the eight
+  `setup-go` call sites reads which, and a runnable validation checklist
 - ADR-0009 recording that the backlog stays in-repo and the tracker stays thin — a decision, not
   an omission
 

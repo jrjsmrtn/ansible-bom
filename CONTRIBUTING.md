@@ -43,6 +43,14 @@ undo the decision.
 `cataloger/` reaches the root module through a `replace` directive and is not independently
 consumable while this repository is private — the ADR explains why, including what was tried.
 
+## Toolchain versions
+
+Three Go versions are in play and they are not interchangeable — the floor in `go.mod` is what a
+consumer needs, the pinned line in the workflows is what artifacts are built with, and the
+cataloger inherits syft's. The
+[quality configuration reference](docs/reference/quality-configuration.md) has the table and a
+validation checklist you can run.
+
 ## Testing
 
 - Go's standard `testing`, table-driven. No assertion library.
