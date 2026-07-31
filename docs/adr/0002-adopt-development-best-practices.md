@@ -126,6 +126,14 @@ before that exists would assert a control we do not have.
 `govulncheck` also runs on a weekly schedule, because a branch that is not seeing commits can
 become vulnerable without anyone touching it.
 
+**OpenSSF Scorecard is gated on the repository being public**, and is inert until then. Verified
+by running it: on a private repository the action fails with `Resource not accessible by
+integration`, because it queries the GitHub GraphQL API which the default `GITHUB_TOKEN` cannot
+reach for private repos. The documented workaround is a personal access token — a long-lived
+secret added to CI solely to grade a repository whose results cannot be published while private.
+That trade is not worth it, so the job carries `if: ${{ !github.event.repository.private }}` and
+starts working by itself at the `public-release` gate.
+
 ### 7. Publishability from the first commit
 
 The repository is Private now and Public before v1.0. Rewriting history to remove a leak is

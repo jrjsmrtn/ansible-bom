@@ -15,6 +15,12 @@ concurrency:
 jobs:
   analysis:
     name: Scorecard analysis
+    # Scorecard cannot run on a private repository: it queries the GitHub GraphQL API, which the
+    # default GITHUB_TOKEN cannot reach for private repos ("Resource not accessible by
+    # integration"). The alternative is a personal access token — a long-lived secret added to
+    # CI purely to grade a repository whose results cannot be published anyway while private.
+    # Not worth the attack surface. This job activates by itself at the public-release gate.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -30,9 +36,9 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Publishing requires a PUBLIC repository. This project is private until it is
-          # stable; flip to true at the public-release gate, not before.
-          publish_results: false
+          # Publishing requires a PUBLIC repository. Once this job runs at all, the repo is
+          # public — so publishing is both possible and the point of running it.
+          publish_results: true
 
       - uses: github/codeql-action/upload-sarif@a2983b8bed1923f44751c5c43237f479442827b3 # v3
         with:
