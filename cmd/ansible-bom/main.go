@@ -19,9 +19,14 @@ import (
 	"github.com/jrjsmrtn/ansible-bom/internal/verify"
 )
 
-// version is the tool's own version. Identifiers it emits are provisional until the `ansible`
-// purl type is approved and implemented upstream, which is what gates 1.0 (ADR-0004).
-const version = "0.1.0"
+// version is the tool's own version, injected at build time from the git tag:
+//
+//	go build -ldflags "-X main.version=$(git describe --tags)"
+//
+// It defaults to "dev" so an untagged local build never claims to be a release. Identifiers the
+// tool emits are provisional until the `ansible` purl type is approved and implemented upstream,
+// which is what gates 1.0 (ADR-0004).
+var version = "dev"
 
 const usage = `ansible-bom %s — inventory installed Ansible content.
 

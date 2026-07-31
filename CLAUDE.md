@@ -12,8 +12,8 @@ Not affiliated with or endorsed by Red Hat, Inc. "Ansible" is a trademark of Red
 - **Stack**: Go
 - **License**: Apache-2.0
 - **Tier**: t1
-- **Distribution profile**: Private — **Public once stable** (ships-artifacts: not yet; released
-  binaries will set the marker)
+- **Distribution profile**: Private — **Public once stable** (**ships-artifacts: yes** as of
+  v0.1.0 — released binaries, checksums and a self-SBOM; provenance and signing gated on public)
 
 ## Why this exists
 

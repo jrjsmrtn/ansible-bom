@@ -116,9 +116,10 @@ never be the reason something works locally and fails in CI. It adds what a hook
 **GitHub Actions hardening** (`.github/workflows/`):
 
 - **Every action is SHA-pinned** to a full 40-character commit, with a `# vX.Y.Z` comment. A
-  mutable tag can be repointed upstream at any time. There is currently **no exception** to this
-  rule; the one the ecosystem sanctions — `slsa-framework/slsa-github-generator`, which verifies
-  its own release tag — does not apply until this project ships artifacts.
+  mutable tag can be repointed upstream at any time. **One exception**, now that the project
+  ships artifacts: `slsa-framework/slsa-github-generator` is referenced by tag, because it
+  verifies its own release tag and a SHA reference breaks that check. It is the only tag
+  reference in `.github/workflows/`, and the validation grep excludes it by name.
 - **`permissions: contents: read`** at the top of every workflow, elevated per job only where
   genuinely needed. Only the Scorecard job elevates, for SARIF upload and OIDC.
 - **`persist-credentials: false`** on every checkout, so no token is left on disk.
@@ -145,7 +146,16 @@ running them, not assumed:
 |---|---|---|
 | OpenSSF Scorecard | gated off | needs GraphQL access the default token lacks on private repos |
 | Dependency review | gated off | needs GitHub Advanced Security on private repos |
-| Everything else | runs | build, gofmt, vet, race tests, govulncheck, BOM conformance |
+| SLSA provenance | gated off | keyless signing publishes the repository and workflow path to a **public** transparency log |
+| cosign signing | gated off | same — Rekor is public, and a private repository's identity would leak into it |
+| Everything else | runs | build, gofmt, vet, race tests, govulncheck, BOM conformance, release binaries, checksums, self-SBOM |
+
+The provenance and signing gates deserve emphasis because the reason differs from the other two:
+those simply *cannot* run while private, whereas keyless signing *would* work and is withheld on
+purpose. Sigstore records the signing identity — repository name and workflow path — in Rekor, a
+public append-only log. Signing a private repository's artifacts would publish exactly what
+keeping it private protects. The gate lifts at the `public-release` gate, where signing becomes
+both possible and the point.
 
 Both carry `if: ${{ !github.event.repository.private }}` and activate by themselves at the
 `public-release` gate, so neither is a step to remember.
