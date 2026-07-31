@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- README: the note on `cosign`'s identity flags claimed that omitting them makes `cosign` accept
+  any valid Sigstore signature. It does not — cosign 3.x refuses to verify in keyless mode without
+  an identity. Replaced with the actual failure messages, and the provenance asset named now that
+  a real release has produced one (`multiple.intoto.jsonl`, one document covering every binary)
+
 ## [0.2.2] - 2026-07-31
 
 ### Fixed

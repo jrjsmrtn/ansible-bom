@@ -76,19 +76,31 @@ cosign verify-blob \
   SHA256SUMS
 ```
 
-Both `--certificate-identity-regexp` and `--certificate-oidc-issuer` are required. Without them
-`cosign` will accept *any* valid Sigstore signature, including one made by someone else entirely.
+Expect `Verified OK`.
 
-Releases from v0.2.2 also carry SLSA build provenance (`*.intoto.jsonl`), verifiable with
-[`slsa-verifier`](https://github.com/slsa-framework/slsa-verifier):
+The identity is the point, not the ceremony: a valid Sigstore signature only tells you *someone*
+signed this. `cosign` will not let you skip it — omitting the identity flag fails with
+`--certificate-identity or --certificate-identity-regexp is required for verification in keyless
+mode` — and a signature made by anyone else is rejected by name:
+
+```
+expected SAN value to match regex "^https://github.com/someone-else/evil/",
+got "https://github.com/jrjsmrtn/ansible-bom/.github/workflows/release.yml@refs/tags/v0.2.2"
+```
+
+Releases from v0.2.2 also carry SLSA build provenance, verifiable with
+[`slsa-verifier`](https://github.com/slsa-framework/slsa-verifier). One `multiple.intoto.jsonl`
+covers every binary in the release:
 
 ```bash
-curl -fsSLO $BASE/<the .intoto.jsonl asset listed on the release>
+curl -fsSLO $BASE/multiple.intoto.jsonl
 slsa-verifier verify-artifact ansible-bom_${VERSION}_${PLATFORM} \
-  --provenance-path <the .intoto.jsonl asset> \
+  --provenance-path multiple.intoto.jsonl \
   --source-uri github.com/jrjsmrtn/ansible-bom \
   --source-tag $VERSION
 ```
+
+Expect `PASSED: SLSA verification passed`.
 
 Earlier releases (v0.1.0–v0.2.1) carry neither: they were built while the repository was private,
 where keyless signing would have published the repository identity to a public transparency log.
