@@ -187,7 +187,11 @@ jobs:
   # for a repository deliberately kept private would leak exactly what privacy is protecting.
   provenance:
     name: SLSA provenance
-    needs: [build]
+    # needs publish, not just build: the generator uploads assets and will CREATE the release if
+    # it does not exist. Running in parallel, it won a race against the publish job — the release
+    # was created with neither the changelog notes nor the prerelease flag. Ordering makes us the
+    # creator and leaves the generator to attach to what we made.
+    needs: [build, publish]
     if: ${{ !github.event.repository.private }}
     permissions:
       actions: read # read the workflow path for the provenance subject
@@ -232,12 +236,29 @@ jobs:
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         if: ${{ !github.event.repository.private }}
 
+      # cosign v3 uses the Sigstore BUNDLE format: one file carrying the signature, the signing
+      # certificate and the Rekor inclusion proof. The v2 pair of --output-signature and
+      # --output-certificate fails here with "create bundle file: open :" — found by running this
+      # on a throwaway tag rather than during a real release.
       - name: Sign the checksum file
         if: ${{ !github.event.repository.private }}
         run: |
           cosign sign-blob --yes \
-            --output-signature dist/SHA256SUMS.sig \
-            --output-certificate dist/SHA256SUMS.pem \
+            --bundle dist/SHA256SUMS.sigstore.json \
+            dist/SHA256SUMS
+
+      # Producing a signature is not the same as producing a verifiable one. This checks the
+      # bundle back, pinned to this repository's release workflow and GitHub's OIDC issuer, so a
+      # signature that cannot be verified fails the release rather than shipping.
+      - name: Verify the signature we just made
+        if: ${{ !github.event.repository.private }}
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          cosign verify-blob \
+            --bundle dist/SHA256SUMS.sigstore.json \
+            --certificate-identity-regexp "^https://github.com/${REPO}/.github/workflows/release.yml@refs/" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             dist/SHA256SUMS
 
       # gh is preinstalled on the runner, so uploading needs no third-party action — one fewer
@@ -248,10 +269,6 @@ jobs:
           TAG: ${{ needs.build.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            echo "release $TAG already exists"
-            exit 0
-          fi
           # 0.x is published as a prerelease: the tool works, but its identifier contract is
           # explicitly unstable until the ansible purl type is registered (ADR-0004).
           prerelease=""
@@ -264,8 +281,17 @@ jobs:
           # place a release is described.
           python3 scripts/changelog-section.py "$TAG" > notes.md
           # --verify-tag refuses to invent a tag that does not already exist on the remote.
-          gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" \
-            --notes-file notes.md $prerelease
+          # Create, or correct in place. Never accept whatever another job may have created:
+          # release notes and the prerelease flag are ours to set, and a release carrying neither
+          # is worse than no release.
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "release $TAG exists — applying our notes and flags"
+            gh release edit "$TAG" --repo "$REPO" --title "$TAG" --notes-file notes.md \
+              --prerelease="$([ -n "$prerelease" ] && echo true || echo false)"
+          else
+            gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" \
+              --notes-file notes.md $prerelease
+          fi
 
       - name: Upload assets
         env:

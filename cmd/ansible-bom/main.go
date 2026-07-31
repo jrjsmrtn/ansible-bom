@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/jrjsmrtn/ansible-bom/content"
@@ -30,6 +31,23 @@ import (
 // tool emits are provisional until the `ansible` purl type is approved and implemented upstream,
 // which is what gates 1.0 (ADR-0004).
 var version = "dev"
+
+// resolveVersion recovers the version for binaries the release workflow did not build.
+//
+// `go install github.com/jrjsmrtn/ansible-bom/cmd/ansible-bom@latest` applies no ldflags, so
+// `version` stays "dev" and the binary cannot say what it is — a broken promise, since the README
+// recommends installing that way. The module version is recorded in the build info regardless, so
+// prefer the injected value and fall back to it.
+func resolveVersion() string {
+	if version != "dev" {
+		return version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return version
+	}
+	return info.Main.Version
+}
 
 const usage = `ansible-bom %s — inventory installed Ansible content.
 
@@ -114,7 +132,7 @@ func main() {
 
 func (a *app) run(args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintf(a.stderr, usage, version)
+		fmt.Fprintf(a.stderr, usage, resolveVersion())
 		return usagef("no command given")
 	}
 
@@ -128,10 +146,10 @@ func (a *app) run(args []string) error {
 	case "verify":
 		return a.runVerify(args[1:])
 	case "version", "--version", "-v":
-		fmt.Fprintf(a.stdout, "ansible-bom %s\n", version)
+		fmt.Fprintf(a.stdout, "ansible-bom %s\n", resolveVersion())
 		return nil
 	case "help", "--help", "-h":
-		fmt.Fprintf(a.stdout, usage, version)
+		fmt.Fprintf(a.stdout, usage, resolveVersion())
 		return nil
 	default:
 		return usagef("unknown command %q — try 'ansible-bom help'", args[0])
@@ -176,7 +194,7 @@ func (a *app) runLock(args []string) error {
 		return err
 	}
 
-	lock := lockfile.New(inv, "ansible-bom "+version, roots)
+	lock := lockfile.New(inv, "ansible-bom "+resolveVersion(), roots)
 
 	var out []byte
 	var omitted int
@@ -363,7 +381,7 @@ func (a *app) runScan(args []string) error {
 	}
 
 	bom, err := cyclonedx.New(inv, cyclonedx.Options{
-		ToolName: "ansible-bom", ToolVersion: version, Roots: roots,
+		ToolName: "ansible-bom", ToolVersion: resolveVersion(), Roots: roots,
 	})
 	if err != nil {
 		return err

@@ -11,6 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-31
+
+### Fixed
+
+- The release pipeline can now sign and attest. Both defects were found by running the pipeline on
+  a throwaway tag once the repository was public — the signing and provenance steps are gated on
+  the repository *not* being private, so v0.2.1 skipped them legitimately and neither bug could
+  have surfaced before now:
+  - **cosign v3 uses the Sigstore bundle format.** `cosign-installer` v4.1.2 installs cosign 3.0.6,
+    where the v2 pair of `--output-signature` and `--output-certificate` fails with
+    `create bundle file: open : no such file or directory`. Signing now emits a single
+    `SHA256SUMS.sigstore.json` bundle carrying the signature, the signing certificate and the Rekor
+    inclusion proof
+  - **The release is created before provenance runs.** The SLSA generator creates the release
+    itself when none exists, and running alongside the publish job it won that race: the release
+    appeared with neither the changelog notes nor the prerelease flag, and our own step then found
+    it present and skipped creation. Provenance now depends on publish, and the creation step
+    applies our notes and flags whether or not a release already exists
+- A release now **verifies the signature it just produced**, pinned to this repository's release
+  workflow identity and GitHub's OIDC issuer. Producing a signature is not the same as producing a
+  verifiable one, and shipping an unverifiable signature is worse than shipping none
+- `go install` builds now report their version. The README recommends installing that way, which
+  applies no ldflags, so the binary printed `ansible-bom dev` — verified against the public module
+  immediately after going public. It now falls back to the module version in the build info
+
+### Changed
+
+- `cataloger/` requires the parent module at a published version instead of reaching it through a
+  `replace`, so it is now resolvable by anyone — closing the limitation ADR-0008 recorded. Verified
+  with `GOWORK=off` against the published module, not the working tree
+- `go.work` is deliberately **not** committed: a workspace unifies the build list, so syft's
+  `go >= 1.26.3` requirement would propagate to the CLI module and break both its declared 1.23
+  floor and the CI job that proves it
+
 ## [0.2.1] - 2026-07-31
 
 Public-release preparation. No change to the tool's behaviour: community health files, SPDX

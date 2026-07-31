@@ -400,3 +400,29 @@ func TestFailOnProblems(t *testing.T) {
 		t.Error("BOM does not declare itself incomplete when content could not be parsed")
 	}
 }
+
+// `go install ...@latest` applies no ldflags, so `version` stays "dev" and the binary could not
+// say what it is — a broken promise, since the README recommends installing that way. The module
+// version is in the build info regardless.
+func TestResolveVersionPrefersTheInjectedValue(t *testing.T) {
+	orig := version
+	t.Cleanup(func() { version = orig })
+
+	version = "v9.9.9"
+	if got := resolveVersion(); got != "v9.9.9" {
+		t.Errorf("resolveVersion() = %q, want the injected value", got)
+	}
+}
+
+// Under `go test` the build info reports "(devel)", which must not be reported as a version —
+// falling back to it would replace one unhelpful answer with a worse one.
+func TestResolveVersionFallsBackSafely(t *testing.T) {
+	orig := version
+	t.Cleanup(func() { version = orig })
+
+	version = "dev"
+	got := resolveVersion()
+	if got == "(devel)" || got == "" {
+		t.Errorf("resolveVersion() = %q, want a real version or the \"dev\" default", got)
+	}
+}
