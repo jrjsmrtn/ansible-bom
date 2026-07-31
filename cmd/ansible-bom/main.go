@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/internal/cyclonedx"
 	"github.com/jrjsmrtn/ansible-bom/internal/drift"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"
 	"github.com/jrjsmrtn/ansible-bom/internal/requirements"
@@ -24,10 +25,12 @@ const usage = `ansible-bom %s — inventory installed Ansible content.
 Usage:
   ansible-bom lock  [flags] <root>...
   ansible-bom drift [flags] <root>...
+  ansible-bom scan  [flags] <root>...
 
 Commands:
   lock      Write a lockfile recording exactly what is installed.
   drift     Compare what is installed against what requirements.yml asks for.
+  scan      Emit a CycloneDX bill of materials. Inventory only — see below.
 
 Flags for 'lock':
   -o, --output <path>     write to a file instead of stdout
@@ -37,6 +40,10 @@ Flags for 'lock':
 Flags for 'drift':
   -r, --requirements <path>  requirements.yml to compare against (required)
       --fail-on-drift        exit non-zero if reproducibility is compromised
+
+Flags for 'scan':
+  -o, --output <path>     write to a file instead of stdout
+      --fail-on-problems  exit non-zero if any content could not be parsed
 
 A <root> is a directory containing ansible_collections/ and/or roles/. Pass more than one when
 they live apart, which is common — ansible.cfg is what decides where they are.
@@ -63,6 +70,8 @@ func run(args []string) error {
 		return runLock(args[1:])
 	case "drift":
 		return runDrift(args[1:])
+	case "scan":
+		return runScan(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("ansible-bom %s\n", version)
 		return nil
@@ -265,4 +274,76 @@ func reportDrift(w *os.File, rep drift.Report, reqPath string) {
 	} else {
 		fmt.Fprintf(w, "Reproducible: NO — this node cannot be rebuilt as it stands.\n")
 	}
+}
+
+// runScan emits a CycloneDX BOM.
+//
+// The subcommand is named for what SBOM tooling calls this operation, which invites the wrong
+// reading: it inventories, it does not assess. ADR-0006 requires that never be implied, so the
+// summary says so explicitly every time.
+func runScan(args []string) error {
+	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	var output string
+	var failOnProblems bool
+	fs.StringVar(&output, "output", "", "write to a file instead of stdout")
+	fs.StringVar(&output, "o", "", "write to a file instead of stdout")
+	fs.BoolVar(&failOnProblems, "fail-on-problems", false, "exit non-zero if any content could not be parsed")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	roots := fs.Args()
+	if len(roots) == 0 {
+		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+	}
+
+	var inv content.Inventory
+	for _, root := range roots {
+		sub, err := content.Scan(root)
+		if err != nil {
+			return err
+		}
+		inv.Components = append(inv.Components, sub.Components...)
+		inv.Problems = append(inv.Problems, sub.Problems...)
+	}
+
+	bom, err := cyclonedx.New(inv, cyclonedx.Options{
+		ToolName: "ansible-bom", ToolVersion: version, Roots: roots,
+	})
+	if err != nil {
+		return err
+	}
+	out, err := cyclonedx.Marshal(bom)
+	if err != nil {
+		return err
+	}
+
+	if output == "" {
+		if _, err := os.Stdout.Write(out); err != nil {
+			return err
+		}
+	} else if err := os.WriteFile(output, out, 0o644); err != nil {
+		return fmt.Errorf("writing %s: %w", output, err)
+	}
+
+	collections, roles, checksummed, unversioned := inv.Counts()
+	fmt.Fprintf(os.Stderr, "CycloneDX %s: %d component(s) — %d collection(s), %d role(s)\n",
+		cyclonedx.SpecVersion, len(inv.Components), collections, roles)
+	fmt.Fprintf(os.Stderr, "  %d with a content digest, %d without a recorded version\n",
+		checksummed, unversioned)
+	if len(inv.Problems) > 0 {
+		fmt.Fprintf(os.Stderr, "  %d NOT inventoried — the BOM declares itself incomplete:\n", len(inv.Problems))
+		for _, p := range inv.Problems {
+			fmt.Fprintf(os.Stderr, "    %s — %s\n", p.Path, strings.TrimSpace(p.Reason))
+		}
+	}
+	fmt.Fprintf(os.Stderr, "identifiers are PROVISIONAL: the `ansible` purl type is not yet registered\n")
+	fmt.Fprintf(os.Stderr, "this is an inventory, not a vulnerability assessment: no database indexes Ansible content\n")
+
+	if failOnProblems && len(inv.Problems) > 0 {
+		return fmt.Errorf("%d component(s) could not be parsed", len(inv.Problems))
+	}
+	return nil
 }

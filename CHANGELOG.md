@@ -43,6 +43,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     missing, unpinned
   - first-party roles reported as context rather than as drift
 - `ansible-bom drift` command, with `--requirements` and `--fail-on-drift`
+- `internal/purl`: the single construction site for provisional `pkg:ansible` identifiers, with a
+  `kind=role` qualifier because the upstream proposal addresses collections only
+- `internal/cyclonedx`: CycloneDX 1.6 emission
+  - per-component assurance tier and vulnerability-coverage status, with the reason stated
+  - content digest carried as a property, never as `hashes` — it is computed over the file
+    manifest, not over a distributed artefact
+  - dependency graph linking only components present in the BOM
+  - `compositions` declaring the inventory incomplete whenever content could not be parsed
+- `ansible-bom scan` command, with `--output` and `--fail-on-problems`
+- `scripts/validate-bom.py`: schema conformance check against the official CycloneDX schema
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
