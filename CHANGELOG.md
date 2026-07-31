@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- ADR-0008 corrected: the cataloger module is not independently consumable because the repository
+  is **private**, not because no tag contained `content/`. Tagging v0.2.0 and dropping the
+  `replace` was tried and fails — the module proxy and checksum database cannot read a private
+  repository, and a `go.work` workspace does not avoid the verification. The exit is the
+  `public-release` gate
+
 ## [0.2.0] - 2026-07-31
 
 Publishes the parsers as a public API and adds syft catalogers as a separate module. No change to
