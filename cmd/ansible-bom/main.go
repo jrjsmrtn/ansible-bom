@@ -14,6 +14,7 @@ import (
 	"github.com/jrjsmrtn/ansible-bom/internal/drift"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"
 	"github.com/jrjsmrtn/ansible-bom/internal/requirements"
+	"github.com/jrjsmrtn/ansible-bom/internal/verify"
 )
 
 // version is the tool's own version. Identifiers it emits are provisional until the `ansible`
@@ -26,11 +27,13 @@ Usage:
   ansible-bom lock  [flags] <root>...
   ansible-bom drift [flags] <root>...
   ansible-bom scan  [flags] <root>...
+  ansible-bom verify [flags] <root>...
 
 Commands:
   lock      Write a lockfile recording exactly what is installed.
   drift     Compare what is installed against what requirements.yml asks for.
   scan      Emit a CycloneDX bill of materials. Inventory only — see below.
+  verify    Check installed files against the checksums recorded at install time.
 
 Flags for 'lock':
   -o, --output <path>     write to a file instead of stdout
@@ -44,6 +47,14 @@ Flags for 'drift':
 Flags for 'scan':
   -o, --output <path>     write to a file instead of stdout
       --fail-on-problems  exit non-zero if any content could not be parsed
+
+Flags for 'verify':
+  -q, --quiet     report only failures
+      --exit-zero always exit 0, even on a failed verification
+
+'verify' exits non-zero on failure by default, unlike the other commands: that is what a
+verification tool is for. It answers "has anything changed since installation?" — not "is this
+what upstream published?", which needs the Galaxy server or a signature.
 
 A <root> is a directory containing ansible_collections/ and/or roles/. Pass more than one when
 they live apart, which is common — ansible.cfg is what decides where they are.
@@ -72,6 +83,8 @@ func run(args []string) error {
 		return runDrift(args[1:])
 	case "scan":
 		return runScan(args[1:])
+	case "verify":
+		return runVerify(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("ansible-bom %s\n", version)
 		return nil
@@ -346,4 +359,86 @@ func runScan(args []string) error {
 		return fmt.Errorf("%d component(s) could not be parsed", len(inv.Problems))
 	}
 	return nil
+}
+
+func runVerify(args []string) error {
+	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	var quiet, exitZero bool
+	fs.BoolVar(&quiet, "quiet", false, "report only failures")
+	fs.BoolVar(&quiet, "q", false, "report only failures")
+	fs.BoolVar(&exitZero, "exit-zero", false, "always exit 0, even on a failed verification")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	roots := fs.Args()
+	if len(roots) == 0 {
+		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+	}
+
+	var inv content.Inventory
+	for _, root := range roots {
+		sub, err := content.Scan(root)
+		if err != nil {
+			return err
+		}
+		inv.Components = append(inv.Components, sub.Components...)
+		inv.Problems = append(inv.Problems, sub.Problems...)
+	}
+
+	rep := verify.Inventory(inv)
+	reportVerify(os.Stdout, rep, inv, quiet)
+
+	if !rep.OK() && !exitZero {
+		return fmt.Errorf("verification failed")
+	}
+	return nil
+}
+
+func reportVerify(w *os.File, rep verify.Report, inv content.Inventory, quiet bool) {
+	verified, modified, unverifiable, errored := rep.Counts()
+
+	for _, res := range rep.Results {
+		switch res.Status {
+		case verify.StatusVerified:
+			if !quiet {
+				fmt.Fprintf(w, "  ok           %-40s %d file(s)\n", res.Component.FQN(), res.Checked)
+			}
+		case verify.StatusUnverifiable:
+			if !quiet {
+				fmt.Fprintf(w, "  unverifiable %-40s %s\n", res.Component.FQN(), res.Note)
+			}
+		case verify.StatusError:
+			fmt.Fprintf(w, "  ERROR        %-40s %s\n", res.Component.FQN(), res.Note)
+		case verify.StatusModified:
+			fmt.Fprintf(w, "  FAILED       %-40s %d of %d file(s) differ\n",
+				res.Component.FQN(), len(res.Problems), res.Checked)
+			if res.Note != "" {
+				fmt.Fprintf(w, "                 %s\n", res.Note)
+			}
+			for i, p := range res.Problems {
+				if i == 10 {
+					fmt.Fprintf(w, "                 ... and %d more\n", len(res.Problems)-10)
+					break
+				}
+				fmt.Fprintf(w, "                 %-9s %s\n", p.Problem, p.Path)
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "\n%d verified, %d failed, %d unverifiable", verified, modified, unverifiable)
+	if errored > 0 {
+		fmt.Fprintf(w, ", %d errored", errored)
+	}
+	fmt.Fprintln(w)
+
+	if unverifiable > 0 {
+		fmt.Fprintf(w, "unverifiable is not a pass: no checksums exist for Ansible roles\n")
+	}
+	if len(inv.Problems) > 0 {
+		fmt.Fprintf(w, "%d component(s) could not be inventoried and were therefore not checked\n", len(inv.Problems))
+	}
+	fmt.Fprintf(w, "this checks against what was recorded at install time, not against what upstream published\n")
 }

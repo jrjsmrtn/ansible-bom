@@ -88,6 +88,7 @@ func ParseCollection(dir string) (Component, error) {
 		Coverage:       CoverageNotCovered,
 		Dependencies:   m.CollectionInfo.Dependencies,
 		Licenses:       m.CollectionInfo.License,
+		FilesDigest:    m.FileManifestFile.SHA256,
 		ManifestFormat: m.Format,
 	}
 	if c.Dependencies == nil {

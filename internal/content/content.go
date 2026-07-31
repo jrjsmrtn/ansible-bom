@@ -80,6 +80,13 @@ type Component struct {
 	// Files is populated only for TierChecksummed components.
 	Files []File
 
+	// FilesDigest is the sha256 that MANIFEST.json records for FILES.json, which lets the file
+	// manifest itself be checked before its contents are trusted. Empty for roles.
+	//
+	// The chain stops there: nothing records MANIFEST.json's own hash, so it is the root of
+	// trust and cannot be verified locally at all.
+	FilesDigest string
+
 	// ManifestFormat is the `format` value of the manifest this was parsed from, or 0 when the
 	// content kind has no manifest.
 	ManifestFormat int

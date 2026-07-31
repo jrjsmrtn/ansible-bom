@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `compositions` declaring the inventory incomplete whenever content could not be parsed
 - `ansible-bom scan` command, with `--output` and `--fail-on-problems`
 - `scripts/validate-bom.py`: schema conformance check against the official CycloneDX schema
+- `internal/verify`: checks installed files against the checksums recorded at install time
+  - verifies `FILES.json` against the digest `MANIFEST.json` records for it *before* trusting the
+    per-file checksums it contains
+  - roles are reported as unverifiable and never as verified
+  - verified and unverifiable counts are kept separate so one cannot be read as the other
+- `ansible-bom verify` command, with `--quiet` and `--exit-zero`; exits non-zero on failure by
+  default, unlike the other commands
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
