@@ -203,10 +203,15 @@ jobs:
       contents: write # upload release assets
       id-token: write # keyless signing, when enabled
     steps:
+      # The workflow's own ref, not the tag: the changelog entry for a release is written on the
+      # branch that produced it, and the extractor is build tooling rather than released source.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.build.outputs.tag }}
           persist-credentials: false
+          sparse-checkout: |
+            scripts
+            CHANGELOG.md
+          sparse-checkout-cone-mode: false
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -247,17 +252,13 @@ jobs:
           # explicitly unstable until the ansible purl type is registered (ADR-0004).
           prerelease=""
           case "$TAG" in v0.*) prerelease="--prerelease" ;; esac
-          # The signed tag annotation is the authoritative description of the release, so the
-          # notes come from it. `--notes-from-tag` cannot be combined with `--repo`, so the
-          # annotation is read explicitly rather than relying on gh inferring the repository
-          # from the working directory.
-          ref_sha=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.sha')
-          ref_type=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.type')
-          if [ "$ref_type" = "tag" ]; then
-            gh api "repos/$REPO/git/tags/$ref_sha" --jq '.message' > notes.md
-          else
-            echo "Lightweight tag — no annotation to describe this release." > notes.md
-          fi
+          # Notes come from the changelog section, not from the tag annotation. A signed tag's
+          # annotation carries the PGP signature block — the API returns it as part of the
+          # message, so it lands verbatim in the release body — and its hard-wrapped plain text
+          # reflows into run-on paragraphs once GitHub renders it as Markdown. Both were observed
+          # on v0.1.1 before this changed. The changelog is already Markdown and is the single
+          # place a release is described.
+          python3 scripts/changelog-section.py "$TAG" > notes.md
           # --verify-tag refuses to invent a tag that does not already exist on the remote.
           gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" \
             --notes-file notes.md $prerelease
