@@ -108,6 +108,27 @@ this author's projects.
 - *Upstream rejection or stall.* The strategic value is syft's reach; if that path closes, the
   standalone binary still works but the advantage over Python largely evaporates. Mitigate by
   opening a proposal issue **before** the code shape is fixed.
+
+- *Contribution mechanics were never checked.* Established 2026-07-31, after both the cataloger
+  and the proposal existed:
+
+  | Question | Finding |
+  |---|---|
+  | Does syft restrict AI-assisted contributions? | **No policy.** Nothing in `CONTRIBUTING.md`, the PR guide, or any policy file mentions AI, LLMs or generated code |
+  | What does syft require? | **DCO sign-off** on every commit — `Signed-off-by:` |
+  | Does this repository's history carry it? | **No.** It uses Conventional Commits and `Co-Authored-By:`; there is no `Signed-off-by` anywhere |
+  | Was AI assistance disclosed on [#5129](https://github.com/anchore/syft/issues/5129)? | **No** |
+
+  The DCO certifies *"the contribution was created in whole or in part by me and I have the right
+  to submit it under the open source license indicated"*. It is silent on how code was produced,
+  so AI assistance does not conflict with it — but the sign-off is a **human** attestation and a
+  hard requirement this history does not satisfy.
+
+  Consequences: any syft PR needs `Signed-off-by` on every commit, which applies to that branch
+  since an accepted cataloger is recommitted into syft's tree rather than pulled from here. And
+  `Co-Authored-By: Claude ...` trailers travel with ported code unless removed — a GitHub
+  attribution convention rather than a legal claim, but worth knowing a project's preference
+  before opening a PR rather than after.
 - ~~*Go version floor.*~~ **Closed 2026-07-31, at the public-release gate.**
 
   `go.mod` had declared `go 1.26.5` — simply the toolchain that happened to be installed — which

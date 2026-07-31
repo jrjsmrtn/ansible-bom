@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/reference/quality-configuration.md`: single source of truth for toolchain versions,
   quality gates and formatting — including the three distinct Go versions, which of the eight
   `setup-go` call sites reads which, and a runnable validation checklist
+- SPARK analysis and ADR-0003 record an inception-stage omission: the analysis asked whether syft
+  would *want* a cataloger but never what syft *requires of a contributor*. Checked only after the
+  code was written — syft has no AI-contribution policy, but does require DCO sign-off, which this
+  history does not carry
 - ADR-0009 recording that the backlog stays in-repo and the tracker stays thin — a decision, not
   an omission
 
