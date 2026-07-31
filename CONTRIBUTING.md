@@ -40,8 +40,22 @@ the shipped binary must not carry syft's dependency graph for a capability it do
 asserts the root module stays syft-free, so a stray import will fail the build rather than quietly
 undo the decision.
 
-`cataloger/` reaches the root module through a `replace` directive and is not independently
-consumable while this repository is private — the ADR explains why, including what was tried.
+`cataloger/` requires the root module at a **published version**, not through a `replace`. That
+became possible when the repository went public: a `replace` is ignored when a module is consumed
+as a dependency, and the module proxy cannot read a private repository. ADR-0008 records what was
+tried before that.
+
+Consequently, a local edit to `content/` is invisible to the cataloger until it is published. If
+you are changing both, use a Go workspace:
+
+```bash
+go work init . ./cataloger
+```
+
+**`go.work` is deliberately not committed.** A workspace unifies the build list across its modules,
+so syft's `go >= 1.26.3` requirement would propagate to the CLI module and break both its declared
+1.23 floor and the CI job that proves it. Use `GOWORK=off` — or delete `go.work` — when building or
+testing the CLI at its floor.
 
 ## Toolchain versions
 

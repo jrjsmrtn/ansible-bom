@@ -12,7 +12,12 @@
 *.out
 coverage.*
 
-# Go workspace files (per-developer, not shared)
+# Go workspace files — deliberately NOT committed.
+#
+# A workspace unifies the build list across its modules, so syft's go >= 1.26.3 requirement in
+# cataloger/ would propagate to the CLI module and break both its declared 1.23 floor and the CI
+# job that proves it. It is a per-developer convenience for working on the cataloger; CONTRIBUTING
+# has the one-liner.
 go.work
 go.work.sum
 

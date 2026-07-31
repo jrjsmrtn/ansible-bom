@@ -2,26 +2,20 @@ module github.com/jrjsmrtn/ansible-bom/cataloger
 
 go 1.26.3
 
-// The cataloger consumes the parsers from the parent module through a replace directive.
+// The parent module is required at a published version, not through a replace directive.
 //
-// KNOWN LIMITATION, and the reason is NOT the one first recorded: this module is not
-// independently consumable because the repository is PRIVATE. Tagging v0.2.0 — the first tag
-// containing the content package — was necessary but not sufficient. Attempted 2026-07-31:
-// requiring github.com/jrjsmrtn/ansible-bom v0.0.0-00010101000000-000000000000 and dropping the replace fails, because
-// proxy.golang.org and sum.golang.org cannot read a private repository, and Go verifies the
-// required version's go.mod even when a go.work workspace supplies the module locally.
+// A replace is ignored when a module is consumed as a dependency, so while one was in place this
+// module could not be resolved by anyone else. The blocker was never a missing tag — it was
+// repository privacy: proxy.golang.org and sum.golang.org cannot read a private repository, and Go
+// verifies a required version's go.mod even when a go.work workspace supplies the module locally.
+// Going public was the exit, exactly as ADR-0008 records.
 //
-// A workspace does not help, GOPRIVATE only helps someone holding credentials, and an external
-// consumer cannot fetch a private repository by any route. The exit is the public-release gate,
-// not another tag.
-//
-// Harmless in the meantime: the destination for this code is syft's own tree, where neither the
-// replace nor the parent dependency travels with it.
-replace github.com/jrjsmrtn/ansible-bom => ../
+// Local development builds against the working tree via go.work at the repository root, which
+// applies to local builds only and is ignored when either module is consumed as a dependency.
 
 require (
 	github.com/anchore/syft v1.50.0
-	github.com/jrjsmrtn/ansible-bom v0.0.0-00010101000000-000000000000
+	github.com/jrjsmrtn/ansible-bom v0.2.1
 )
 
 require (

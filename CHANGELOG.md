@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `go install` builds now report their version. The README recommends installing that way, which
+  applies no ldflags, so the binary printed `ansible-bom dev` — verified against the public module
+  immediately after going public. It now falls back to the module version in the build info
+
+### Changed
+
+- `cataloger/` requires the parent module at a published version instead of reaching it through a
+  `replace`, so it is now resolvable by anyone — closing the limitation ADR-0008 recorded. Verified
+  with `GOWORK=off` against the published module, not the working tree
+- `go.work` is deliberately **not** committed: a workspace unifies the build list, so syft's
+  `go >= 1.26.3` requirement would propagate to the CLI module and break both its declared 1.23
+  floor and the CI job that proves it
+
 ## [0.2.1] - 2026-07-31
 
 Public-release preparation. No change to the tool's behaviour: community health files, SPDX

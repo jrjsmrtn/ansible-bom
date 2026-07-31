@@ -113,7 +113,16 @@ that is where an accepted cataloger would actually live.
   a workspace does not avoid it either. `GOPRIVATE` only helps someone already holding
   credentials, and an external consumer cannot fetch a private repository by any route.
 
-  **The exit is therefore the `public-release` gate, not another tag.** Accepted until then,
+  **Closed 2026-07-31** when the repository went public. The `replace` is gone and the parent is
+  required at `v0.2.1`; verified with `GOWORK=off go build ./... && go test ./...` against the
+  published module rather than the working tree.
+
+  One consequence was not anticipated: **a `go.work` workspace cannot be committed.** It unifies
+  the build list across its modules, so syft's `go >= 1.26.3` requirement propagates to the CLI
+  module and breaks both its declared 1.23 floor and the CI job that proves it. The workspace
+  remains a per-developer convenience, gitignored, documented in CONTRIBUTING.
+
+  *Original text:* **The exit is therefore the `public-release` gate, not another tag.** Accepted until then,
   because the destination for this code is syft's own tree, where neither the `replace` nor the
   parent dependency travels with it.
 
