@@ -128,6 +128,17 @@ func ScanRoles(root string) (Inventory, error) {
 func Scan(root string) (Inventory, error) {
 	var inv Inventory
 
+	// A root that does not exist is a mistake, not an empty answer. Silently returning nothing
+	// would make a typo'd path indistinguishable from a control node with no content — and the
+	// caller would get a valid, empty, entirely misleading BOM.
+	fi, err := os.Stat(root)
+	if err != nil {
+		return inv, fmt.Errorf("content root %s: %w", root, err)
+	}
+	if !fi.IsDir() {
+		return inv, fmt.Errorf("content root %s is not a directory", root)
+	}
+
 	for _, part := range []struct {
 		dir string
 		fn  func(string) (Inventory, error)

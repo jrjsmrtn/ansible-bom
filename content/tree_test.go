@@ -96,6 +96,21 @@ func TestScanCounts(t *testing.T) {
 	}
 }
 
+// A root that does not exist is a mistake, not an empty answer — otherwise a typo'd path
+// produces a valid, empty and entirely misleading inventory.
+func TestScanNonexistentRootIsAnError(t *testing.T) {
+	if _, err := Scan(filepath.Join(t.TempDir(), "no-such-dir")); err == nil {
+		t.Fatal("scanning a nonexistent root returned no error")
+	}
+	f := filepath.Join(t.TempDir(), "a-file")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Scan(f); err == nil {
+		t.Fatal("scanning a file as a content root returned no error")
+	}
+}
+
 // A root with neither subdirectory is a valid, empty answer rather than an error.
 func TestScanEmptyRoot(t *testing.T) {
 	inv, err := Scan(t.TempDir())
