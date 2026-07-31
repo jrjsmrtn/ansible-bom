@@ -9,8 +9,8 @@ node — collections *and* legacy roles — and produces the lockfile Ansible Ga
 drift report against your `requirements.yml`, and a CycloneDX bill of materials.
 
 > **Status: pre-release (0.x).** All four commands work, and syft catalogers exist as a separate
-> module. Component identifiers are provisional until v1.0 — see [Design notes](#design-notes). Component identifiers
-> are provisional until v1.0 — see [Design notes](#design-notes) and [Roadmap](#roadmap).
+> module. Component identifiers are provisional until v1.0 — see
+> [Design notes](#design-notes) and [Roadmap](#roadmap).
 
 ---
 
