@@ -18,7 +18,12 @@ import (
 // Type is the proposed purl type from purl-spec#854.
 const Type = "ansible"
 
-// ProposalURL is the upstream proposal this implementation follows.
+// ProposalURL is the upstream proposal being tracked.
+//
+// Tracked, not followed: what this package emits does NOT conform to it. The proposal makes
+// namespace a required, separate component (pkg:ansible/cisco/aci@2.13.0) where this package
+// folds it into the name (pkg:ansible/cisco.aci@2.13.0). The divergence is deliberate for now and
+// pinned by conformance_test.go against a vendored snapshot. See ADR-0004.
 const ProposalURL = "https://github.com/package-url/purl-spec/pull/854"
 
 // Status describes the stability of identifiers this package emits. It is carried into every
@@ -27,10 +32,12 @@ const Status = "provisional: the `ansible` purl type is proposed but not yet reg
 
 // RoleQualifier marks a purl as naming a legacy role rather than a collection.
 //
-// This is an extension to the upstream proposal, not part of it: purl-spec#854 addresses
-// collections and says nothing about roles, yet "author.name@version" is ambiguous between the
-// two — Galaxy namespaces both. Without a discriminator, a role and a collection sharing a name
-// would collide. Reported upstream; revisit when the type is registered.
+// This is an extension to the upstream proposal, not part of it: purl-spec#854 is scoped to
+// collections ("Ansible Collection") and says nothing about roles, yet "author.name@version" is
+// ambiguous between the two — Galaxy namespaces both. Without a discriminator, a role and a
+// collection sharing a name would collide.
+//
+// NOT yet reported upstream. Revisit when the type is registered.
 const RoleQualifier = "kind=role"
 
 // For builds the identifier for a component.

@@ -11,7 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The purl-spec#854 proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its
+  upstream commit, digest and PR state recorded, clearly marked as an unmerged proposal rather than
+  a specification
+- `internal/purl/conformance_test.go` asserts emitted identifiers against that snapshot and **pins
+  the divergence** described below, so it fails if either side moves — the tool made to conform, or
+  the proposal amended. Both failure directions were exercised before the tests were committed
+
 ### Fixed
+
+- **ADR-0004 claimed 0.x identifiers follow purl-spec#854. They do not.** The proposal makes
+  `namespace` a required, *separate* purl component (`pkg:ansible/cisco/aci@2.13.0`); this tool
+  folds it into the name (`pkg:ansible/cisco.aci@2.13.0`) and so emits no namespace at all. That is
+  non-conformance with a machine-readable constraint, not a variant spelling, and it means the
+  eventual migration is a real change rather than the no-op ADR-0004 predicted. Identifiers are
+  unchanged for now — `?kind=role` is also outside the proposal, roles are outside its scope
+  entirely, and identity is worth changing once, when the shape settles. The error survived because
+  the proposal was paraphrased into prose and never captured; the vendored snapshot and conformance
+  test above are the actual fix
+- `purl.go` stated the role-qualifier gap had been "reported upstream". It has not — no comment
+  from this project exists on purl-spec#854. Corrected to say so
 
 - README: the note on `cosign`'s identity flags claimed that omitting them makes `cosign` accept
   any valid Sigstore signature. It does not — cosign 3.x refuses to verify in keyless mode without
