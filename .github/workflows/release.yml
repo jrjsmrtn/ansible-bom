@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and attach artifacts to
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      hashes: ${{ steps.hashes.outputs.hashes }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: echo "tag=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      # Reproducibility, not paranoia: -trimpath removes absolute build paths, CGO_ENABLED=0
+      # produces a static binary with no host libc dependency, and the version is injected from
+      # the tag so a binary can never disagree with the release it came from.
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os=${target%/*}
+            arch=${target#*/}
+            ext=""
+            [ "$os" = "windows" ] && ext=".exe"
+            name="ansible-bom_${TAG}_${os}_${arch}${ext}"
+            echo "building $name"
+            GOOS="$os" GOARCH="$arch" go build \
+              -trimpath \
+              -ldflags "-s -w -X main.version=${TAG}" \
+              -o "dist/${name}" ./cmd/ansible-bom
+          done
+          ls -l dist/
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum ansible-bom_* > SHA256SUMS
+          cat SHA256SUMS
+
+      # Base64 of the checksum file, which the SLSA generator consumes as its subject list.
+      - id: hashes
+        working-directory: dist
+        run: echo "hashes=$(base64 -w0 SHA256SUMS)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test the native binary
+        run: |
+          chmod +x "dist/ansible-bom_${{ steps.tag.outputs.tag }}_linux_amd64"
+          "dist/ansible-bom_${{ steps.tag.outputs.tag }}_linux_amd64" version
+          "dist/ansible-bom_${{ steps.tag.outputs.tag }}_linux_amd64" scan internal/content/testdata/tree > /dev/null
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          retention-days: 5
+
+  sbom:
+    name: SBOM
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.tag }}
+          persist-credentials: false
+
+      # A tool that emits bills of materials should ship one for itself. This describes
+      # ansible-bom's own Go dependencies — not the Ansible content it inventories.
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          format: cyclonedx-json
+          artifact-name: ansible-bom.cdx.json
+          output-file: ansible-bom.cdx.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: ansible-bom.cdx.json
+          retention-days: 5
+
+  # SLSA build provenance. The generator MUST be referenced by tag, not SHA: it verifies its own
+  # release tag, and a SHA reference breaks that check. This is the single documented exception to
+  # the SHA-pinning rule in ADR-0002 §6.
+  #
+  # Gated on the repository being public. Provenance is signed keylessly through Sigstore, which
+  # records the repository name and workflow path in a PUBLIC transparency log — publishing that
+  # for a repository deliberately kept private would leak exactly what privacy is protecting.
+  provenance:
+    name: SLSA provenance
+    needs: [build]
+    if: ${{ !github.event.repository.private }}
+    permissions:
+      actions: read # read the workflow path for the provenance subject
+      id-token: write # mint the OIDC token used for keyless signing
+      contents: write # attach provenance to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: true
+
+  publish:
+    name: Attach to release
+    needs: [build, sbom]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # upload release assets
+      id-token: write # keyless signing, when enabled
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sbom
+          path: dist
+
+      # Signing is gated for the same reason as provenance: keyless cosign publishes the
+      # repository and workflow identity to a public transparency log.
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: ${{ !github.event.repository.private }}
+
+      - name: Sign the checksum file
+        if: ${{ !github.event.repository.private }}
+        run: |
+          cosign sign-blob --yes \
+            --output-signature dist/SHA256SUMS.sig \
+            --output-certificate dist/SHA256SUMS.pem \
+            dist/SHA256SUMS
+
+      # gh is preinstalled on the runner, so uploading needs no third-party action — one fewer
+      # dependency in the path that publishes the artifacts.
+      - name: Upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          gh release upload "$TAG" dist/* --clobber --repo "${{ github.repository }}"
+          gh release view "$TAG" --repo "${{ github.repository }}" --json assets \
+            --jq '.assets[] | "\(.name)  \(.size) bytes"'

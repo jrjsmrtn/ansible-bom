@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Release workflow: cross-compiled binaries for linux/darwin/windows on amd64 and arm64, a
+  `SHA256SUMS` file, and a CycloneDX SBOM of the tool's own Go dependencies
+- SLSA build provenance and cosign signing of the checksum file, both gated on the repository
+  being public — keyless signing publishes the repository identity to a public transparency log
+- Version is injected from the git tag at build time and defaults to `dev`, so an untagged local
+  build cannot claim to be a release
+
 ## [0.1.0] - 2026-07-31
 
 First release. All four commands work; identifiers are provisional until v1.0.
