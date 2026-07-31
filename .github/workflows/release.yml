@@ -103,14 +103,31 @@ jobs:
       # artefact they downloaded should not have to reason about which SBOM applies to it.
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
 
+      # Two deliberate choices here, both measured rather than assumed:
+      #
+      #   --select-catalogers go   PE binaries additionally trigger the pe-binary cataloger,
+      #                            which adds an `application` component with version=UNKNOWN,
+      #                            no purl, and 89 speculative CPEs permuted from the FILENAME.
+      #                            That is fabricated identity data of exactly the kind that
+      #                            produces false positives in CPE-matching scanners, and the
+      #                            binary's real identity is already present as pkg:golang/...
+      #                            Restricting to the go tag makes all platforms identical.
+      #
+      #   normalise-sbom.py        syft records the RESOLVED ABSOLUTE scan path in the `file`
+      #                            component, and neither a relative argument nor --base-path
+      #                            changes that for a file: scan (both tried). -trimpath removes
+      #                            build paths from the binary; this does the same for the
+      #                            document, so an SBOM does not depend on where it was built.
       - name: SBOM per binary
+        working-directory: dist
         run: |
-          for bin in dist/ansible-bom_*; do
+          for bin in ansible-bom_*; do
             case "$bin" in *SHA256SUMS*) continue ;; esac
             echo "cataloguing $bin"
-            syft scan "file:${bin}" -o cyclonedx-json="${bin}.cdx.json" -q
+            syft scan "file:${bin}" --select-catalogers go -o cyclonedx-json="${bin}.cdx.json" -q
           done
-          ls -l dist/*.cdx.json
+          python3 ../scripts/normalise-sbom.py ./*.cdx.json
+          ls -l ./*.cdx.json
 
       # Fail loudly if the scan produced a BOM of the wrong thing. A supply-chain tool shipping
       # an SBOM that describes its own CI configuration would be a poor advertisement.
@@ -129,7 +146,15 @@ jobs:
               sys.exit(f"{path}: no stdlib component — the binary was not catalogued")
           if any(p.startswith("pkg:github/") for p in purls):
               sys.exit(f"{path}: contains pkg:github components — CI config was catalogued")
-          print(f"{path}: {len(golang)} Go component(s), stdlib present")
+          found = {p["value"] for c in bom.get("components", [])
+                   for p in c.get("properties", []) if p.get("name") == "syft:package:foundBy"}
+          if "pe-binary-package-cataloger" in found:
+              sys.exit(f"{path}: PE cataloger ran — it adds an UNKNOWN-version component whose "
+                       "CPEs are permuted from the filename")
+          if "/home/runner" in open(path).read():
+              sys.exit(f"{path}: embeds an absolute build path")
+          print(f"{path}: {len(golang)} Go component(s), stdlib present, "
+                "no PE component, no absolute paths")
           PY
           done
 
