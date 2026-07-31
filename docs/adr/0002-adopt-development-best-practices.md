@@ -126,6 +126,19 @@ before that exists would assert a control we do not have.
 `govulncheck` also runs on a weekly schedule, because a branch that is not seeing commits can
 become vulnerable without anyone touching it.
 
+**Several supply-chain controls only function on a public repository**, so the private phase runs
+a reduced but honest set rather than a set that appears to run and does not. Both were verified by
+running them, not assumed:
+
+| Control | Private | Reason |
+|---|---|---|
+| OpenSSF Scorecard | gated off | needs GraphQL access the default token lacks on private repos |
+| Dependency review | gated off | needs GitHub Advanced Security on private repos |
+| Everything else | runs | build, gofmt, vet, race tests, govulncheck, BOM conformance |
+
+Both carry `if: ${{ !github.event.repository.private }}` and activate by themselves at the
+`public-release` gate, so neither is a step to remember.
+
 **OpenSSF Scorecard is gated on the repository being public**, and is inert until then. Verified
 by running it: on a private repository the action fails with `Resource not accessible by
 integration`, because it queries the GitHub GraphQL API which the default `GITHUB_TOKEN` cannot

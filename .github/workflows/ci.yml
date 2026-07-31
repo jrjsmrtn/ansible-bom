@@ -114,7 +114,10 @@ jobs:
 
   dependency-review:
     name: Dependency review
-    if: github.event_name == 'pull_request'
+    # Also unavailable on a private repository without GitHub Advanced Security — verified by
+    # running it: "Dependency review is not supported on this repository." Like Scorecard, it
+    # activates by itself at the public-release gate.
+    if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
