@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Community health files for public release: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
+  (Contributor Covenant 2.1), `SECURITY.md`, issue and pull-request templates, and
+  `.github/release.yml`
+- SPDX headers on all 25 Go source files
+- CodeQL analysis workflow
+- README install instructions, quick start, badges and contribution pointers
+
 ### Changed
 
 - ADR-0008 corrected: the cataloger module is not independently consumable because the repository

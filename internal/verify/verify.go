@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package verify checks installed files against the checksums recorded when they were installed.
 //
 // What this establishes, and what it does not, matters more than usual here.

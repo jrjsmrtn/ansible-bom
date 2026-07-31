@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package purl constructs Package URL identifiers for Ansible content.
 //
 // This is the ONLY place identifiers are built. There is no registered `ansible` purl type yet —

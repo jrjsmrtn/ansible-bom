@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some things are deliberately out of scope and were decided at inception: dependency
+        resolution, installing content, and modelling what playbooks deploy on managed hosts.
+        Reasons are in the [SPARK analysis](../../docs/inception/spark-analysis.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to do today?
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+    validations: { required: true }
+  - type: checkboxes
+    id: contract
+    attributes:
+      label: Output contract
+      options:
+        - label: This would change what the tool's output asserts (needs an ADR)
+        - label: I have checked it is not in the out-of-scope list above

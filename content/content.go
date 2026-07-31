@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package content models Ansible content installed on a control node — collections and
 // legacy roles — as it exists on disk.
 //

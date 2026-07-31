@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package drift compares what a control node has against what its requirements.yml asks for.
 //
 // The gap between the two is where reproducibility is lost. Neither file alone shows it:

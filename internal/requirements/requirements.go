@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package requirements parses requirements.yml — the file describing what a control node is
 // *supposed* to have, as distinct from what it does have.
 //

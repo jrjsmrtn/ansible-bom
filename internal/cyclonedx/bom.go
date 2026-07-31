@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cyclonedx renders an inventory as a CycloneDX bill of materials.
 //
 // The document is deliberately explicit about its own limits. Ansible content is indexed by no
