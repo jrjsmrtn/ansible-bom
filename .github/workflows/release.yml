@@ -233,6 +233,25 @@ jobs:
 
       # gh is preinstalled on the runner, so uploading needs no third-party action — one fewer
       # dependency in the path that publishes the artifacts.
+      - name: Create the release if it does not exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+            exit 0
+          fi
+          # 0.x is published as a prerelease: the tool works, but its identifier contract is
+          # explicitly unstable until the ansible purl type is registered (ADR-0004).
+          prerelease=""
+          case "$TAG" in v0.*) prerelease="--prerelease" ;; esac
+          # --verify-tag refuses to invent a tag; --notes-from-tag uses the signed annotation,
+          # which is the authoritative description of what the release is.
+          gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" \
+            --notes-from-tag $prerelease
+
       - name: Upload assets
         env:
           GH_TOKEN: ${{ github.token }}
