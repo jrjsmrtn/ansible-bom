@@ -4,8 +4,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -63,42 +65,88 @@ This tool inventories. It does not scan for vulnerabilities: no vulnerability da
 Ansible collections or roles, so an empty result from one means nothing.
 `
 
-func main() {
-	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "ansible-bom: %v\n", err)
-		os.Exit(1)
+// app holds the output streams, so the whole CLI is exercisable from tests without touching
+// process state. Nothing below writes to os.Stdout or os.Stderr directly.
+type app struct {
+	stdout io.Writer
+	stderr io.Writer
+}
+
+// usageError is returned for a malformed invocation, which exits 2 rather than 1 — the
+// conventional distinction between "you asked wrongly" and "the thing you asked for failed".
+type usageError struct{ err error }
+
+func (e usageError) Error() string { return e.err.Error() }
+func (e usageError) Unwrap() error { return e.err }
+
+func usagef(format string, args ...any) error {
+	return usageError{fmt.Errorf(format, args...)}
+}
+
+// exitCode maps an error to a process exit status.
+func exitCode(err error) int {
+	var ue usageError
+	switch {
+	case err == nil:
+		return 0
+	case errors.As(err, &ue):
+		return 2
+	default:
+		return 1
 	}
 }
 
-func run(args []string) error {
+func main() {
+	a := &app{stdout: os.Stdout, stderr: os.Stderr}
+	if err := a.run(os.Args[1:]); err != nil {
+		fmt.Fprintf(a.stderr, "ansible-bom: %v\n", err)
+		os.Exit(exitCode(err))
+	}
+}
+
+func (a *app) run(args []string) error {
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, usage, version)
-		os.Exit(2)
+		fmt.Fprintf(a.stderr, usage, version)
+		return usagef("no command given")
 	}
 
 	switch args[0] {
 	case "lock":
-		return runLock(args[1:])
+		return a.runLock(args[1:])
 	case "drift":
-		return runDrift(args[1:])
+		return a.runDrift(args[1:])
 	case "scan":
-		return runScan(args[1:])
+		return a.runScan(args[1:])
 	case "verify":
-		return runVerify(args[1:])
+		return a.runVerify(args[1:])
 	case "version", "--version", "-v":
-		fmt.Printf("ansible-bom %s\n", version)
+		fmt.Fprintf(a.stdout, "ansible-bom %s\n", version)
 		return nil
 	case "help", "--help", "-h":
-		fmt.Printf(usage, version)
+		fmt.Fprintf(a.stdout, usage, version)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q — try 'ansible-bom help'", args[0])
+		return usagef("unknown command %q — try 'ansible-bom help'", args[0])
 	}
 }
 
-func runLock(args []string) error {
+// scanRoots inventories every root given, accumulating both components and problems.
+func (a *app) scanRoots(roots []string) (content.Inventory, error) {
+	var inv content.Inventory
+	for _, root := range roots {
+		sub, err := content.Scan(root)
+		if err != nil {
+			return inv, err
+		}
+		inv.Components = append(inv.Components, sub.Components...)
+		inv.Problems = append(inv.Problems, sub.Problems...)
+	}
+	return inv, nil
+}
+
+func (a *app) runLock(args []string) error {
 	fs := flag.NewFlagSet("lock", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(a.stderr)
 
 	var output string
 	var asRequirements, failOnProblems bool
@@ -112,23 +160,17 @@ func runLock(args []string) error {
 	}
 	roots := fs.Args()
 	if len(roots) == 0 {
-		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+		return usagef("no content root given — try 'ansible-bom help'")
 	}
 
-	var inv content.Inventory
-	for _, root := range roots {
-		sub, err := content.Scan(root)
-		if err != nil {
-			return err
-		}
-		inv.Components = append(inv.Components, sub.Components...)
-		inv.Problems = append(inv.Problems, sub.Problems...)
+	inv, err := a.scanRoots(roots)
+	if err != nil {
+		return err
 	}
 
 	lock := lockfile.New(inv, "ansible-bom "+version, roots)
 
 	var out []byte
-	var err error
 	var omitted int
 	if asRequirements {
 		out, omitted, err = lockfile.Requirements(lock)
@@ -140,14 +182,14 @@ func runLock(args []string) error {
 	}
 
 	if output == "" {
-		if _, err := os.Stdout.Write(out); err != nil {
+		if _, err := a.stdout.Write(out); err != nil {
 			return err
 		}
 	} else if err := os.WriteFile(output, out, 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", output, err)
 	}
 
-	report(os.Stderr, lock, inv, omitted, asRequirements)
+	report(a.stderr, lock, inv, omitted, asRequirements)
 
 	if failOnProblems && len(inv.Problems) > 0 {
 		return fmt.Errorf("%d component(s) could not be parsed", len(inv.Problems))
@@ -159,7 +201,7 @@ func runLock(args []string) error {
 //
 // Counts are deliberately never presented as a single total: a reader who sees "22 components"
 // will take it for "22 verified", and only some of them carry any integrity data at all.
-func report(w *os.File, l lockfile.Lock, inv content.Inventory, omitted int, asRequirements bool) {
+func report(w io.Writer, l lockfile.Lock, inv content.Inventory, omitted int, asRequirements bool) {
 	s := l.Summary
 	fmt.Fprintf(w, "%d collection(s), %d role(s)\n", s.Collections, s.Roles)
 	fmt.Fprintf(w, "  %d pinned, %d with a content digest\n", s.Pinned, s.Checksummed)
@@ -188,9 +230,9 @@ func report(w *os.File, l lockfile.Lock, inv content.Inventory, omitted int, asR
 	fmt.Fprintf(w, "no vulnerability data: no database indexes Ansible content\n")
 }
 
-func runDrift(args []string) error {
+func (a *app) runDrift(args []string) error {
 	fs := flag.NewFlagSet("drift", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(a.stderr)
 
 	var reqPath string
 	var failOnDrift bool
@@ -202,11 +244,11 @@ func runDrift(args []string) error {
 		return err
 	}
 	if reqPath == "" {
-		return fmt.Errorf("--requirements is required: drift compares intent against reality, and needs both")
+		return usagef("--requirements is required: drift compares intent against reality, and needs both")
 	}
 	roots := fs.Args()
 	if len(roots) == 0 {
-		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+		return usagef("no content root given — try 'ansible-bom help'")
 	}
 
 	req, err := requirements.Parse(reqPath)
@@ -214,18 +256,13 @@ func runDrift(args []string) error {
 		return err
 	}
 
-	var inv content.Inventory
-	for _, root := range roots {
-		sub, err := content.Scan(root)
-		if err != nil {
-			return err
-		}
-		inv.Components = append(inv.Components, sub.Components...)
-		inv.Problems = append(inv.Problems, sub.Problems...)
+	inv, err := a.scanRoots(roots)
+	if err != nil {
+		return err
 	}
 
 	rep := drift.Compare(inv, req)
-	reportDrift(os.Stdout, rep, reqPath)
+	reportDrift(a.stdout, rep, reqPath)
 
 	if failOnDrift && !rep.Reproducible() {
 		return fmt.Errorf("this control node cannot be reproduced from %s", reqPath)
@@ -247,7 +284,7 @@ var driftHeadings = []struct {
 	{drift.KindFirstParty, "First-party content (not drift)"},
 }
 
-func reportDrift(w *os.File, rep drift.Report, reqPath string) {
+func reportDrift(w io.Writer, rep drift.Report, reqPath string) {
 	fmt.Fprintf(w, "%d declared in %s, %d installed\n\n", rep.Declared, reqPath, rep.Installed)
 
 	if len(rep.Findings) == 0 {
@@ -294,9 +331,9 @@ func reportDrift(w *os.File, rep drift.Report, reqPath string) {
 // The subcommand is named for what SBOM tooling calls this operation, which invites the wrong
 // reading: it inventories, it does not assess. ADR-0006 requires that never be implied, so the
 // summary says so explicitly every time.
-func runScan(args []string) error {
+func (a *app) runScan(args []string) error {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(a.stderr)
 
 	var output string
 	var failOnProblems bool
@@ -309,17 +346,12 @@ func runScan(args []string) error {
 	}
 	roots := fs.Args()
 	if len(roots) == 0 {
-		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+		return usagef("no content root given — try 'ansible-bom help'")
 	}
 
-	var inv content.Inventory
-	for _, root := range roots {
-		sub, err := content.Scan(root)
-		if err != nil {
-			return err
-		}
-		inv.Components = append(inv.Components, sub.Components...)
-		inv.Problems = append(inv.Problems, sub.Problems...)
+	inv, err := a.scanRoots(roots)
+	if err != nil {
+		return err
 	}
 
 	bom, err := cyclonedx.New(inv, cyclonedx.Options{
@@ -334,7 +366,7 @@ func runScan(args []string) error {
 	}
 
 	if output == "" {
-		if _, err := os.Stdout.Write(out); err != nil {
+		if _, err := a.stdout.Write(out); err != nil {
 			return err
 		}
 	} else if err := os.WriteFile(output, out, 0o644); err != nil {
@@ -342,18 +374,18 @@ func runScan(args []string) error {
 	}
 
 	collections, roles, checksummed, unversioned := inv.Counts()
-	fmt.Fprintf(os.Stderr, "CycloneDX %s: %d component(s) — %d collection(s), %d role(s)\n",
+	fmt.Fprintf(a.stderr, "CycloneDX %s: %d component(s) — %d collection(s), %d role(s)\n",
 		cyclonedx.SpecVersion, len(inv.Components), collections, roles)
-	fmt.Fprintf(os.Stderr, "  %d with a content digest, %d without a recorded version\n",
+	fmt.Fprintf(a.stderr, "  %d with a content digest, %d without a recorded version\n",
 		checksummed, unversioned)
 	if len(inv.Problems) > 0 {
-		fmt.Fprintf(os.Stderr, "  %d NOT inventoried — the BOM declares itself incomplete:\n", len(inv.Problems))
+		fmt.Fprintf(a.stderr, "  %d NOT inventoried — the BOM declares itself incomplete:\n", len(inv.Problems))
 		for _, p := range inv.Problems {
-			fmt.Fprintf(os.Stderr, "    %s — %s\n", p.Path, strings.TrimSpace(p.Reason))
+			fmt.Fprintf(a.stderr, "    %s — %s\n", p.Path, strings.TrimSpace(p.Reason))
 		}
 	}
-	fmt.Fprintf(os.Stderr, "identifiers are PROVISIONAL: the `ansible` purl type is not yet registered\n")
-	fmt.Fprintf(os.Stderr, "this is an inventory, not a vulnerability assessment: no database indexes Ansible content\n")
+	fmt.Fprintf(a.stderr, "identifiers are PROVISIONAL: the `ansible` purl type is not yet registered\n")
+	fmt.Fprintf(a.stderr, "this is an inventory, not a vulnerability assessment: no database indexes Ansible content\n")
 
 	if failOnProblems && len(inv.Problems) > 0 {
 		return fmt.Errorf("%d component(s) could not be parsed", len(inv.Problems))
@@ -361,9 +393,9 @@ func runScan(args []string) error {
 	return nil
 }
 
-func runVerify(args []string) error {
+func (a *app) runVerify(args []string) error {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(a.stderr)
 
 	var quiet, exitZero bool
 	fs.BoolVar(&quiet, "quiet", false, "report only failures")
@@ -375,21 +407,16 @@ func runVerify(args []string) error {
 	}
 	roots := fs.Args()
 	if len(roots) == 0 {
-		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+		return usagef("no content root given — try 'ansible-bom help'")
 	}
 
-	var inv content.Inventory
-	for _, root := range roots {
-		sub, err := content.Scan(root)
-		if err != nil {
-			return err
-		}
-		inv.Components = append(inv.Components, sub.Components...)
-		inv.Problems = append(inv.Problems, sub.Problems...)
+	inv, err := a.scanRoots(roots)
+	if err != nil {
+		return err
 	}
 
 	rep := verify.Inventory(inv)
-	reportVerify(os.Stdout, rep, inv, quiet)
+	reportVerify(a.stdout, rep, inv, quiet)
 
 	if !rep.OK() && !exitZero {
 		return fmt.Errorf("verification failed")
@@ -397,7 +424,7 @@ func runVerify(args []string) error {
 	return nil
 }
 
-func reportVerify(w *os.File, rep verify.Report, inv content.Inventory, quiet bool) {
+func reportVerify(w io.Writer, rep verify.Report, inv content.Inventory, quiet bool) {
 	verified, modified, unverifiable, errored := rep.Counts()
 
 	for _, res := range rep.Results {

@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - verified and unverifiable counts are kept separate so one cannot be read as the other
 - `ansible-bom verify` command, with `--quiet` and `--exit-zero`; exits non-zero on failure by
   default, unlike the other commands
+- CLI end-to-end tests covering all four commands, their flags and their exit codes
+- exit status 2 for a malformed invocation, distinct from 1 for a failed operation
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one

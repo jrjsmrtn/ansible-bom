@@ -180,9 +180,18 @@ func (r Report) Counts() map[Kind]int {
 	return counts
 }
 
-// Reproducible reports whether the node could be rebuilt from its declarations plus this
-// repository. First-party content is excluded: it travels with the repository, so it is
-// reproducible by definition.
+// Reproducible reports whether every installed component could be pinned and rebuilt — which is
+// a question about the lockfile, not about requirements.yml.
+//
+// Deliberately NOT covered: undeclared and missing components. An undeclared component still has
+// a version, so `lock` can pin it and a rebuild from the lockfile reproduces it; it is a
+// governance problem, not a reproducibility one. A declared-but-absent component says nothing
+// about reproducing what is actually here.
+//
+// What does break it: a mutable source (no version to pin), a component with no recorded version
+// at all, and a version mismatch (the declaration and reality disagree, so neither can be
+// trusted as the thing to rebuild). First-party content is excluded — it travels with the
+// repository.
 func (r Report) Reproducible() bool {
 	for _, f := range r.Findings {
 		switch f.Kind {
