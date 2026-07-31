@@ -128,7 +128,7 @@ func TestScanEmptyRoot(t *testing.T) {
 // which is how every finding in the inception analysis was discovered. Point this at a real
 // ansible_collections parent to check the parser against reality:
 //
-//	ANSIBLE_BOM_REAL_TREE=/path/to/content go test ./internal/content -run RealTree -v
+//	ANSIBLE_BOM_REAL_TREE=/path/to/content go test ./content -run RealTree -v
 func TestScanRealTree(t *testing.T) {
 	root := os.Getenv("ANSIBLE_BOM_REAL_TREE")
 	if root == "" {
