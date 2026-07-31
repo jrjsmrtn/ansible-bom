@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-31
+
+Public-release preparation. No change to the tool's behaviour: community health files, SPDX
+headers, and a correction to which Go toolchain builds the artifacts.
+
 ### Added
 
 - Community health files for public release: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
@@ -170,7 +175,8 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jrjsmrtn/ansible-bom/releases/tag/v0.1.0
