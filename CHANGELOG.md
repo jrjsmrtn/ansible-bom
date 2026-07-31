@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-31
+
 ### Fixed
 
 - The release pipeline can now sign and attest. Both defects were found by running the pipeline on

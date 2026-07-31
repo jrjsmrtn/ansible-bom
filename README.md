@@ -51,14 +51,47 @@ Download a binary for your platform from the [latest release](https://github.com
 verify it, and put it on your `PATH`:
 
 ```bash
-# Adjust the version and platform
-curl -fsSLO https://github.com/jrjsmrtn/ansible-bom/releases/download/v0.2.0/ansible-bom_v0.2.0_linux_amd64
-curl -fsSLO https://github.com/jrjsmrtn/ansible-bom/releases/download/v0.2.0/SHA256SUMS
+VERSION=v0.2.2          # adjust
+PLATFORM=linux_amd64    # or darwin_arm64, darwin_amd64, linux_arm64, windows_amd64.exe
+BASE=https://github.com/jrjsmrtn/ansible-bom/releases/download/$VERSION
+
+curl -fsSLO $BASE/ansible-bom_${VERSION}_${PLATFORM}
+curl -fsSLO $BASE/SHA256SUMS
 sha256sum --ignore-missing -c SHA256SUMS
-chmod +x ansible-bom_v0.2.0_linux_amd64
+chmod +x ansible-bom_${VERSION}_${PLATFORM}
 ```
 
 Each binary ships with a CycloneDX SBOM of its own Go dependencies alongside it.
+
+`SHA256SUMS` is what the checksum above trusts, so from **v0.2.2** it is signed — verifying the
+signature is what makes that trust worth anything. Signing is keyless, via Sigstore, and the bundle
+carries the signature, the signing certificate and the Rekor inclusion proof:
+
+```bash
+curl -fsSLO $BASE/SHA256SUMS.sigstore.json
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/jrjsmrtn/ansible-bom/\.github/workflows/release\.yml@refs/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+```
+
+Both `--certificate-identity-regexp` and `--certificate-oidc-issuer` are required. Without them
+`cosign` will accept *any* valid Sigstore signature, including one made by someone else entirely.
+
+Releases from v0.2.2 also carry SLSA build provenance (`*.intoto.jsonl`), verifiable with
+[`slsa-verifier`](https://github.com/slsa-framework/slsa-verifier):
+
+```bash
+curl -fsSLO $BASE/<the .intoto.jsonl asset listed on the release>
+slsa-verifier verify-artifact ansible-bom_${VERSION}_${PLATFORM} \
+  --provenance-path <the .intoto.jsonl asset> \
+  --source-uri github.com/jrjsmrtn/ansible-bom \
+  --source-tag $VERSION
+```
+
+Earlier releases (v0.1.0–v0.2.1) carry neither: they were built while the repository was private,
+where keyless signing would have published the repository identity to a public transparency log.
 
 Or build from source:
 
