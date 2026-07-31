@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/internal/drift"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"
+	"github.com/jrjsmrtn/ansible-bom/internal/requirements"
 )
 
 // version is the tool's own version. Identifiers it emits are provisional until the `ansible`
@@ -20,15 +22,21 @@ const version = "0.1.0"
 const usage = `ansible-bom %s — inventory installed Ansible content.
 
 Usage:
-  ansible-bom lock [flags] <root>...
+  ansible-bom lock  [flags] <root>...
+  ansible-bom drift [flags] <root>...
 
 Commands:
   lock      Write a lockfile recording exactly what is installed.
+  drift     Compare what is installed against what requirements.yml asks for.
 
 Flags for 'lock':
   -o, --output <path>     write to a file instead of stdout
       --requirements      emit an installable requirements.yml projection instead
       --fail-on-problems  exit non-zero if any content could not be parsed
+
+Flags for 'drift':
+  -r, --requirements <path>  requirements.yml to compare against (required)
+      --fail-on-drift        exit non-zero if reproducibility is compromised
 
 A <root> is a directory containing ansible_collections/ and/or roles/. Pass more than one when
 they live apart, which is common — ansible.cfg is what decides where they are.
@@ -53,6 +61,8 @@ func run(args []string) error {
 	switch args[0] {
 	case "lock":
 		return runLock(args[1:])
+	case "drift":
+		return runDrift(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("ansible-bom %s\n", version)
 		return nil
@@ -154,4 +164,105 @@ func report(w *os.File, l lockfile.Lock, inv content.Inventory, omitted int, asR
 	}
 
 	fmt.Fprintf(w, "no vulnerability data: no database indexes Ansible content\n")
+}
+
+func runDrift(args []string) error {
+	fs := flag.NewFlagSet("drift", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	var reqPath string
+	var failOnDrift bool
+	fs.StringVar(&reqPath, "requirements", "", "requirements.yml to compare against")
+	fs.StringVar(&reqPath, "r", "", "requirements.yml to compare against")
+	fs.BoolVar(&failOnDrift, "fail-on-drift", false, "exit non-zero if reproducibility is compromised")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if reqPath == "" {
+		return fmt.Errorf("--requirements is required: drift compares intent against reality, and needs both")
+	}
+	roots := fs.Args()
+	if len(roots) == 0 {
+		return fmt.Errorf("no content root given — try 'ansible-bom help'")
+	}
+
+	req, err := requirements.Parse(reqPath)
+	if err != nil {
+		return err
+	}
+
+	var inv content.Inventory
+	for _, root := range roots {
+		sub, err := content.Scan(root)
+		if err != nil {
+			return err
+		}
+		inv.Components = append(inv.Components, sub.Components...)
+		inv.Problems = append(inv.Problems, sub.Problems...)
+	}
+
+	rep := drift.Compare(inv, req)
+	reportDrift(os.Stdout, rep, reqPath)
+
+	if failOnDrift && !rep.Reproducible() {
+		return fmt.Errorf("this control node cannot be reproduced from %s", reqPath)
+	}
+	return nil
+}
+
+// driftHeadings gives each finding kind a human heading, ordered worst-first to match the report.
+var driftHeadings = []struct {
+	kind    drift.Kind
+	heading string
+}{
+	{drift.KindMutableSource, "Tracking a moving target"},
+	{drift.KindUnpinnable, "Cannot be pinned"},
+	{drift.KindVersionMismatch, "Installed version is not the declared one"},
+	{drift.KindUndeclared, "Installed but never declared"},
+	{drift.KindMissing, "Declared but not installed"},
+	{drift.KindUnpinned, "Declared without an exact version"},
+	{drift.KindFirstParty, "First-party content (not drift)"},
+}
+
+func reportDrift(w *os.File, rep drift.Report, reqPath string) {
+	fmt.Fprintf(w, "%d declared in %s, %d installed\n\n", rep.Declared, reqPath, rep.Installed)
+
+	if len(rep.Findings) == 0 {
+		fmt.Fprintf(w, "No drift: every declaration is pinned and every installed component was declared.\n")
+		return
+	}
+
+	byKind := map[drift.Kind][]drift.Finding{}
+	for _, f := range rep.Findings {
+		byKind[f.Kind] = append(byKind[f.Kind], f)
+	}
+
+	for _, h := range driftHeadings {
+		fs := byKind[h.kind]
+		if len(fs) == 0 {
+			continue
+		}
+		fmt.Fprintf(w, "%s (%d)\n", h.heading, len(fs))
+		fmt.Fprintf(w, "  %s\n", fs[0].Detail)
+		for _, f := range fs {
+			switch {
+			case f.Declared != "" && f.Installed != "":
+				fmt.Fprintf(w, "    %-40s declared %s, installed %s\n", f.Component, f.Declared, f.Installed)
+			case f.Declared != "":
+				fmt.Fprintf(w, "    %-40s declared %s\n", f.Component, f.Declared)
+			case f.Installed != "":
+				fmt.Fprintf(w, "    %-40s installed %s\n", f.Component, f.Installed)
+			default:
+				fmt.Fprintf(w, "    %s\n", f.Component)
+			}
+		}
+		fmt.Fprintln(w)
+	}
+
+	if rep.Reproducible() {
+		fmt.Fprintf(w, "Reproducible: yes — nothing installed is unpinnable or mismatched.\n")
+	} else {
+		fmt.Fprintf(w, "Reproducible: NO — this node cannot be rebuilt as it stands.\n")
+	}
 }

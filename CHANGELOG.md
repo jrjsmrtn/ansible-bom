@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ansible-bom lock` command, with `--output`, `--requirements` and `--fail-on-problems`
 - collection origin inferred from `.info` install markers: presence means Galaxy, absence means
   unknown rather than git
+- `internal/requirements`: permissive `requirements.yml` parser — modern and legacy forms, bare
+  strings, `name`/`src` spellings, git URLs with ansible's comma-separated ref
+- `internal/drift`: comparison of installed content against declarations
+  - findings ordered worst-first: mutable source, unpinnable, version mismatch, undeclared,
+    missing, unpinned
+  - first-party roles reported as context rather than as drift
+- `ansible-bom drift` command, with `--requirements` and `--fail-on-drift`
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
