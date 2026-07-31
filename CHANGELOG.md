@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The release pipeline can now sign and attest. Both defects were found by running the pipeline on
+  a throwaway tag once the repository was public — the signing and provenance steps are gated on
+  the repository *not* being private, so v0.2.1 skipped them legitimately and neither bug could
+  have surfaced before now:
+  - **cosign v3 uses the Sigstore bundle format.** `cosign-installer` v4.1.2 installs cosign 3.0.6,
+    where the v2 pair of `--output-signature` and `--output-certificate` fails with
+    `create bundle file: open : no such file or directory`. Signing now emits a single
+    `SHA256SUMS.sigstore.json` bundle carrying the signature, the signing certificate and the Rekor
+    inclusion proof
+  - **The release is created before provenance runs.** The SLSA generator creates the release
+    itself when none exists, and running alongside the publish job it won that race: the release
+    appeared with neither the changelog notes nor the prerelease flag, and our own step then found
+    it present and skipped creation. Provenance now depends on publish, and the creation step
+    applies our notes and flags whether or not a release already exists
+- A release now **verifies the signature it just produced**, pinned to this repository's release
+  workflow identity and GitHub's OIDC issuer. Producing a signature is not the same as producing a
+  verifiable one, and shipping an unverifiable signature is worse than shipping none
 - `go install` builds now report their version. The README recommends installing that way, which
   applies no ldflags, so the binary printed `ansible-bom dev` — verified against the public module
   immediately after going public. It now falls back to the module version in the build info
