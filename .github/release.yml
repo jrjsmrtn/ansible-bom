@@ -1,0 +1,16 @@
+# Contributor acknowledgement in generated release notes. The release workflow uses the CHANGELOG
+# section as the release body, so this applies to the auto-generated portion GitHub appends.
+changelog:
+  exclude:
+    labels: [ignore-for-release]
+  categories:
+    - title: Breaking Changes
+      labels: [breaking]
+    - title: New Capabilities
+      labels: [enhancement]
+    - title: Bug Fixes
+      labels: [bug]
+    - title: Build, CI and Release
+      labels: [ci, build]
+    - title: Other Changes
+      labels: ["*"]

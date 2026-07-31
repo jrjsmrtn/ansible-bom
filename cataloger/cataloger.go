@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cataloger implements syft catalogers for Ansible content.
 //
 // It is a SEPARATE Go module, deliberately. Importing syft takes a dependency graph from 3

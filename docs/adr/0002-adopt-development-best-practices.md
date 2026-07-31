@@ -201,6 +201,8 @@ from the upstream strategy. REUSE/SPDX headers are deferred to the `public-relea
 
 ## References
 
+- [Quality configuration reference](../reference/quality-configuration.md) — the current values,
+  per call site, with a runnable validation checklist. This ADR records *why*; that records *what*
 - [SPARK analysis](../inception/spark-analysis.md) — the metadata findings driving §5
 - [Effective Go](https://go.dev/doc/effective_go) ·
   [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)

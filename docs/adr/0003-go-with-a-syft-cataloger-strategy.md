@@ -108,12 +108,74 @@ this author's projects.
 - *Upstream rejection or stall.* The strategic value is syft's reach; if that path closes, the
   standalone binary still works but the advantage over Python largely evaporates. Mitigate by
   opening a proposal issue **before** the code shape is fixed.
-- *Go version floor.* `go.mod` currently declares the toolchain version in use. Lower it to the
-  oldest supported Go before public release; requiring the newest release would exclude the
-  enterprise CI this targets.
+
+- *Contribution mechanics were never checked.* Established 2026-07-31, after both the cataloger
+  and the proposal existed:
+
+  | Question | Finding |
+  |---|---|
+  | Does syft restrict AI-assisted contributions? | **No policy.** Nothing in `CONTRIBUTING.md`, the PR guide, or any policy file mentions AI, LLMs or generated code |
+  | What does syft require? | **DCO sign-off** on every commit — `Signed-off-by:` |
+  | Does this repository's history carry it? | **No.** It uses Conventional Commits and `Co-Authored-By:`; there is no `Signed-off-by` anywhere |
+  | Was AI assistance disclosed on [#5129](https://github.com/anchore/syft/issues/5129)? | **No** |
+
+  The DCO certifies *"the contribution was created in whole or in part by me and I have the right
+  to submit it under the open source license indicated"*. It is silent on how code was produced,
+  so AI assistance does not conflict with it — but the sign-off is a **human** attestation and a
+  hard requirement this history does not satisfy.
+
+  Consequences: any syft PR needs `Signed-off-by` on every commit, which applies to that branch
+  since an accepted cataloger is recommitted into syft's tree rather than pulled from here. And
+  `Co-Authored-By: Claude ...` trailers travel with ported code unless removed — a GitHub
+  attribution convention rather than a legal claim, but worth knowing a project's preference
+  before opening a PR rather than after.
+- ~~*Go version floor.*~~ **Closed 2026-07-31, at the public-release gate.**
+
+  `go.mod` had declared `go 1.26.5` — simply the toolchain that happened to be installed — which
+  would have excluded the enterprise CI this project targets, since a `go` directive is a hard
+  minimum from Go 1.21 onwards.
+
+  The floor was chosen from evidence rather than taste. The newest standard-library API the CLI
+  uses is `strings.Cut` (Go 1.18); nothing depends on `slices`, `maps`, `errors.Join`,
+  range-over-int or the `min`/`max` builtins. **`go 1.23.0`** was set and then *verified against a
+  real toolchain* — `GOTOOLCHAIN=go1.23.0`, downloaded, with the full suite building and passing —
+  rather than assumed from an API survey. That is two releases below Go's own support window,
+  which is the margin lagging CI needs.
+
+  **The two modules deliberately diverge.** `cataloger/` declares `go 1.26.3`, because syft
+  v1.50.0 requires it; attempting 1.24 fails with `requires go >= 1.26.3`. That floor is inherited,
+  not chosen, and it is a further argument for the split in
+  [ADR-0008](0008-cataloger-as-a-separate-module.md): were the cataloger inside the CLI module, its
+  dependency would drag every consumer of the CLI onto a toolchain three releases newer, for a
+  capability the CLI does not use.
+
+  Consequence for CI: the cataloger job reads `cataloger/go.mod` rather than the root one. Reading
+  the root would select 1.23 and fail to build syft.
+
+  **A second consequence, caught by CI immediately after the change.** The declared floor is what
+  a *consumer* needs; it is not the toolchain to *build* with. Every workflow read
+  `go-version-file: go.mod`, so lowering the floor silently moved CI and the release build onto
+  go1.23.0 — which carries `GO-2026-4602` and `GO-2025-3750` in `os`, a package this code calls
+  constantly. `govulncheck` failed the build and said so.
+
+  Released binaries embed the standard library they are built with, and each binary's own SBOM
+  records `pkg:golang/stdlib@<version>`, so shipping the floor would have published a known-
+  vulnerable stdlib *and* recorded the fact in the accompanying BOM. Builds now pin the Go line
+  (`go-version: "1.26"`); a separate `floor` job builds and tests at exactly the declared minimum,
+  proving the compatibility claim without treating an old toolchain as shippable.
+
+  The line is pinned rather than tracking `stable` so that a new Go major release cannot change
+  what CI and the release build produce without a commit here. Patch releases within the line are
+  still taken, which is what carries stdlib security fixes. Nothing manages this automatically —
+  Dependabot does not update `go-version` — so bumping it when 1.27 lands is a deliberate,
+  roughly twice-yearly act. Two workflows (`codeql`, `scorecard`) initially kept reading the floor
+  and had to be corrected: the scheduled `govulncheck` would otherwise have reported the floor
+  toolchain's advisories every week, about a version nothing is built with.
 
 ## References
 
+- [Quality configuration reference](../reference/quality-configuration.md) — the three Go versions
+  in play, where each is configured, and the twice-yearly bump obligation
 - [SPARK analysis](../inception/spark-analysis.md) — technology options, distribution reasoning
 - [syft](https://github.com/anchore/syft) — cataloger interface and examples
 - [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) — the upstream proposal, opened 2026-07-31. Its outcome determines whether the distribution advantage this ADR rests on is actually available

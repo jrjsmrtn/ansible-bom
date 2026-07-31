@@ -83,6 +83,7 @@ Read these at the start of each session.
 | [0006](docs/adr/0006-declare-vulnerability-coverage-status.md) | OUTPUT CONTRACT | No OSV coverage, and it fails silently; label it |
 | [0007](docs/adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md) | PARSING CONTRACT | Schemas exist for authored files only; fixtures defend the rest |
 | [0008](docs/adr/0008-cataloger-as-a-separate-module.md) | PACKAGING | The cataloger is a separate module; the CLI must never import syft |
+| [0009](docs/adr/0009-keep-the-backlog-in-repo.md) | WORK ORGANIZATION | The tracker stays thin; the roadmap stays in the README |
 
 ## Development Practices
 

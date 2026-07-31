@@ -55,6 +55,12 @@ decisions:
     status: Accepted
     date: 2026-07-31
     supersedes: "part of ADR-0003"
+  - id: 9
+    file: 0009-keep-the-backlog-in-repo.md
+    title: Keep the Backlog In-Repo
+    purpose: WORK ORGANIZATION
+    status: Accepted
+    date: 2026-07-31
 
 # No operations ADR (HOW TO OPERATE): the category is Development and the tool operates nothing —
 # it is a stateless CLI invoked from CI. The foundational sequence therefore ends at 0003, and

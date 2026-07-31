@@ -1,0 +1,41 @@
+name: Bug report
+description: Something the tool got wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything security-related — including output that overstates assurance — do **not**
+        file here. See [SECURITY.md](../../SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `ansible-bom version`
+      placeholder: ansible-bom v0.2.0
+    validations: { required: true }
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options: [lock, drift, scan, verify, other]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Content tree that reproduces it
+      description: |
+        The single most useful thing you can provide. A minimal `ansible_collections/` or `roles/`
+        tree, or the relevant `MANIFEST.json` / `FILES.json` / `meta/main.yml`.
+        **Scrub anything internal first** — hostnames, paths, private repository URLs.
+      render: shell
+  - type: textarea
+    id: output
+    attributes:
+      label: Actual output
+      render: shell

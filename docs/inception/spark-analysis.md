@@ -326,6 +326,9 @@ exchange for distribution reach.
 - Role-to-role dependencies exist in `meta/main.yml` but are rare in practice.
 - Ansible does not appear in syft's documented ecosystem list; syft exposes a cataloger interface
   and a custom-cataloger example, making both the library and upstream paths viable.
+- **syft has no policy on AI-assisted contributions**, and requires **DCO sign-off** on every
+  commit. Established 2026-07-31 — *after* the cataloger was written and the proposal opened. See
+  the correction below.
 - The reference environment has zero pinned declarations, ≥4 undeclared transitive collections,
   ≥1 undeclared Galaxy role, and 2 collections tracking mutable git sources.
 
@@ -343,9 +346,30 @@ exchange for distribution reach.
 | Gap | Impact if unfilled | Approach |
 |---|---|---|
 | syft maintainers' appetite for an Ansible cataloger | decides the strategic distribution path | **Proposal opened 2026-07-31: [anchore/syft#5129](https://github.com/anchore/syft/issues/5129).** Gap now blocked on their reply, not on our action |
+| ~~*(never listed)*~~ **What upstream requires of contributors** | could invalidate the whole contribution, whatever its quality | **This gap was missing from the analysis entirely** — see the correction below |
 | How tarball- and local-path-installed content differs on disk | parser misses a source type | install one of each into a scratch tree |
 | Whether collection GPG signature data is retrievable post-install | blocks the deferred attestation work | read `ansible-galaxy collection verify` internals |
 | Execution Environment image layout | shapes the deferred EE input | inspect a built EE |
+
+> **Correction to this analysis, 2026-07-31.** The analysis asked whether syft *wanted* an Ansible
+> cataloger, and treated that as the only upstream unknown. It never asked what syft **requires of
+> a contributor** — a question that belongs beside it, because a contribution can be wanted and
+> still be unacceptable on process grounds.
+>
+> Checked only after the cataloger was written and the proposal was open. The outcome was benign:
+> syft has no policy on AI-assisted contributions, so there was nothing to violate. But it does
+> require **DCO sign-off**, which this repository's history does not carry, and the proposal did
+> not disclose that the work is AI-assisted.
+>
+> The process failure matters more than the finding. Against a project that *does* restrict
+> AI-generated contributions — an increasingly common position — the same omission would have
+> wasted the cataloger entirely, and it would have been discovered at the point of submission
+> rather than at the point of decision. Recorded in
+> [ADR-0003](../adr/0003-go-with-a-syft-cataloger-strategy.md) with the specifics.
+>
+> **Generalised**: when a project's strategy depends on contributing to someone else's repository,
+> "will they want it?" and "what do they require of me?" are two questions, and the second is
+> cheaper to answer first.
 
 ### Proof-of-concept needs
 
@@ -476,8 +500,10 @@ Consequences to manage:
 
 1. Run **POC-2** (OSV coverage) before bootstrapping — minutes of work, and it confirms or refutes
    the framing.
-2. **Engage syft maintainers early** with a cataloger proposal, before the code shape is fixed.
-   The distribution advantage is the reason Go beat Python; validate it is available.
+2. **Engage syft maintainers early** with a cataloger proposal, before the code shape is fixed —
+   and read their contribution requirements at the same time, not later. The distribution
+   advantage is the reason Go beat Python; validate that it is available *and* that we can meet
+   the conditions attached to it. (Done 2026-07-31, in the wrong order — see the correction in K.)
 3. Commit to the **two-tier model** for collections versus roles, and make the asymmetry visible
    in the output.
 4. Ship the **lockfile** capability first. It pays off on day one and depends on no unsettled

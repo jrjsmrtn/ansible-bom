@@ -1,5 +1,9 @@
 # ansible-bom
 
+[![CI](https://github.com/jrjsmrtn/ansible-bom/actions/workflows/ci.yml/badge.svg)](https://github.com/jrjsmrtn/ansible-bom/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jrjsmrtn/ansible-bom.svg)](https://pkg.go.dev/github.com/jrjsmrtn/ansible-bom)
+
 **Pin what actually runs.** `ansible-bom` inventories the Ansible content installed on a control
 node — collections *and* legacy roles — and produces the lockfile Ansible Galaxy never shipped, a
 drift report against your `requirements.yml`, and a CycloneDX bill of materials.
@@ -40,6 +44,49 @@ Ansible content at all — `syft` covers 61 ecosystems; Ansible is not among the
 | `ansible-bom verify` | Check installed files against the checksums recorded at install time. Answers "has anything changed since installation?" — not "is this what upstream published?", which needs the Galaxy server or a signature |
 
 Read-only, offline, no Galaxy credentials, no change to how you install content today.
+
+## Installation
+
+Download a binary for your platform from the [latest release](https://github.com/jrjsmrtn/ansible-bom/releases),
+verify it, and put it on your `PATH`:
+
+```bash
+# Adjust the version and platform
+curl -fsSLO https://github.com/jrjsmrtn/ansible-bom/releases/download/v0.2.0/ansible-bom_v0.2.0_linux_amd64
+curl -fsSLO https://github.com/jrjsmrtn/ansible-bom/releases/download/v0.2.0/SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+chmod +x ansible-bom_v0.2.0_linux_amd64
+```
+
+Each binary ships with a CycloneDX SBOM of its own Go dependencies alongside it.
+
+Or build from source:
+
+```bash
+go install github.com/jrjsmrtn/ansible-bom/cmd/ansible-bom@latest
+```
+
+## Quick start
+
+```bash
+# What is actually installed, pinned
+ansible-bom lock /path/to/content > ansible-bom.lock.yaml
+
+# ...and an installable requirements.yml
+ansible-bom lock --requirements /path/to/content > requirements.lock.yml
+
+# What drifted from what you declared
+ansible-bom drift -r requirements.yml /path/to/content
+
+# A CycloneDX bill of materials
+ansible-bom scan /path/to/content > bom.json
+
+# Has anything changed since installation?
+ansible-bom verify /path/to/content
+```
+
+A *content root* is a directory containing `ansible_collections/` and/or `roles/`. Pass more than
+one when they live apart, which is common — `ansible.cfg` decides where they are.
 
 ## Who it is for
 
@@ -82,6 +129,17 @@ versions track the published contract rather than this list.
 Deferred: collection signature verification, Execution Environment images as an input, TEA
 publishing. Explicitly out of scope: dependency resolution, installation, and modelling what
 playbooks deploy on managed hosts.
+
+## Contributing
+
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), which covers
+the two-module layout and the one rule that matters most: the output must never claim more than it
+knows.
+
+Security reports go through [SECURITY.md](SECURITY.md), not the issue tracker — and overstated
+assurance in the output counts as a security issue, not merely a bug.
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
 
 ## Documentation
 

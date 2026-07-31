@@ -1,20 +1,22 @@
 module github.com/jrjsmrtn/ansible-bom/cataloger
 
-go 1.26.5
+go 1.26.3
 
-// The cataloger consumes the parsers from the parent module. A replace keeps it building against
-// the working tree rather than a published version, which matters while content/ is 0.x and its
-// API is still free to move (ADR-0008).
+// The cataloger consumes the parsers from the parent module through a replace directive.
 //
-// KNOWN LIMITATION: this module is NOT independently consumable, by design and for now.
-// A replace directive is ignored when a module is used as a dependency, so `go get` of this
-// module would try to resolve the placeholder version below and fail. No published tag of the
-// parent contains the content package either — it was internal/content until 2026-07-31, so
-// neither v0.1.0 nor v0.1.1 would satisfy the requirement.
+// KNOWN LIMITATION, and the reason is NOT the one first recorded: this module is not
+// independently consumable because the repository is PRIVATE. Tagging v0.2.0 — the first tag
+// containing the content package — was necessary but not sufficient. Attempted 2026-07-31:
+// requiring github.com/jrjsmrtn/ansible-bom v0.0.0-00010101000000-000000000000 and dropping the replace fails, because
+// proxy.golang.org and sum.golang.org cannot read a private repository, and Go verifies the
+// required version's go.mod even when a go.work workspace supplies the module locally.
 //
-// This is tolerable because the destination for this code is syft's own tree, where neither the
-// replace nor the parent dependency travels with it. Resolve by dropping the replace and
-// requiring a real parent version once one is tagged that contains content/.
+// A workspace does not help, GOPRIVATE only helps someone holding credentials, and an external
+// consumer cannot fetch a private repository by any route. The exit is the public-release gate,
+// not another tag.
+//
+// Harmless in the meantime: the destination for this code is syft's own tree, where neither the
+// replace nor the parent dependency travels with it.
 replace github.com/jrjsmrtn/ansible-bom => ../
 
 require (

@@ -11,6 +11,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-31
+
+Public-release preparation. No change to the tool's behaviour: community health files, SPDX
+headers, and a correction to which Go toolchain builds the artifacts.
+
+### Added
+
+- Community health files for public release: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
+  (Contributor Covenant 2.1), `SECURITY.md`, issue and pull-request templates, and
+  `.github/release.yml`
+- SPDX headers on all 25 Go source files
+- CodeQL analysis workflow
+- README install instructions, quick start, badges and contribution pointers
+- `docs/reference/quality-configuration.md`: single source of truth for toolchain versions,
+  quality gates and formatting — including the three distinct Go versions, which of the eight
+  `setup-go` call sites reads which, and a runnable validation checklist
+- SPARK analysis and ADR-0003 record an inception-stage omission: the analysis asked whether syft
+  would *want* a cataloger but never what syft *requires of a contributor*. Checked only after the
+  code was written — syft has no AI-contribution policy, but does require DCO sign-off, which this
+  history does not carry
+- ADR-0009 recording that the backlog stays in-repo and the tracker stays thin — a decision, not
+  an omission
+
+### Changed
+
+- Go floor lowered from 1.26.5 to **1.23.0** for the CLI, verified against a real downloaded
+  1.23.0 toolchain rather than inferred from an API survey. `cataloger/` stays at 1.26.3 because
+  syft requires it — an inherited floor, and a further argument for the module split. Closes the
+  risk ADR-0003 recorded for this gate
+- CI and release builds now use a pinned Go line (`1.26`) rather than the floor declared in
+  `go.mod`. Pinned rather than `stable` so a new Go major release cannot change what is built
+  without a commit; patch releases within the line are still picked up, which is what carries
+  stdlib security fixes. Building at the minimum meant building against the least-patched
+  standard library — `govulncheck` caught two `os` advisories in go1.23.0 — and released binaries
+  embed the stdlib they are built with. A separate `floor` job builds and tests at the declared
+  minimum, so the compatibility claim stays verified
+- ADR-0008 corrected: the cataloger module is not independently consumable because the repository
+  is **private**, not because no tag contained `content/`. Tagging v0.2.0 and dropping the
+  `replace` was tried and fails — the module proxy and checksum database cannot read a private
+  repository, and a `go.work` workspace does not avoid the verification. The exit is the
+  `public-release` gate
+
 ## [0.2.0] - 2026-07-31
 
 Publishes the parsers as a public API and adds syft catalogers as a separate module. No change to
@@ -133,7 +175,8 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jrjsmrtn/ansible-bom/releases/tag/v0.1.0

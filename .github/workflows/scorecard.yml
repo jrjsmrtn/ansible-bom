@@ -53,10 +53,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # The pinned line, not go.mod's floor — same reason as ci.yml. Reading the floor here would
+      # make this scheduled scan report the floor toolchain's own stdlib advisories every Monday,
+      # which is noise about a version nothing is built with.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          check-latest: false
+          go-version: "1.26"
+          check-latest: true
 
       # CI on push only catches advisories disclosed while commits are happening. A quiet
       # branch can become vulnerable without anyone touching it, which is precisely the

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Georges Martin <jrjsmrtn@gmail.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package lockfile renders an inventory as a lockfile: the record of exactly what is installed,
 // so a control node can be rebuilt as it stands rather than as its requirements.yml wishes.
 //
