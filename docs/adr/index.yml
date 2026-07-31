@@ -48,6 +48,13 @@ decisions:
     purpose: PARSING CONTRACT
     status: Accepted
     date: 2026-07-31
+  - id: 8
+    file: 0008-cataloger-as-a-separate-module.md
+    title: Keep the syft Cataloger Out of the CLI Binary
+    purpose: PACKAGING
+    status: Accepted
+    date: 2026-07-31
+    supersedes: "part of ADR-0003"
 
 # No operations ADR (HOW TO OPERATE): the category is Development and the tool operates nothing —
 # it is a stateless CLI invoked from CI. The foundational sequence therefore ends at 0003, and

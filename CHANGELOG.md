@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `cataloger/`: syft catalogers for Ansible collections and legacy roles, as a **separate Go
+  module** so the shipped CLI never acquires syft's dependency graph — measured at 3 modules
+  versus 445 (ADR-0008). Tested through syft's real directory resolver
+- CI asserts the root module remains free of syft
+
+### Changed
+
+- `internal/content` is now the public `content` package, with reader-based decoders
+  (`DecodeManifest`, `DecodeFiles`, `DecodeRoleMeta`, `DecodeInstallInfo`) beneath the existing
+  path-based functions. syft parsers are handed a reader, and `internal/` cannot be imported by an
+  upstream contribution, so neither the cataloger nor a future syft PR could have reused a single
+  line of the previous shape
+
 ## [0.1.1] - 2026-07-31
 
 Ships artifacts for the first time. No change to the tool's behaviour — every change here is to

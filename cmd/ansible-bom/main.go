@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 	"github.com/jrjsmrtn/ansible-bom/internal/cyclonedx"
 	"github.com/jrjsmrtn/ansible-bom/internal/drift"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"

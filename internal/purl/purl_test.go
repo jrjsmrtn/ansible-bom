@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 )
 
 func TestFor(t *testing.T) {
