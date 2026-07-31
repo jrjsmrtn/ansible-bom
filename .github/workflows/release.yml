@@ -232,12 +232,29 @@ jobs:
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         if: ${{ !github.event.repository.private }}
 
+      # cosign v3 uses the Sigstore BUNDLE format: one file carrying the signature, the signing
+      # certificate and the Rekor inclusion proof. The v2 pair of --output-signature and
+      # --output-certificate fails here with "create bundle file: open :" — found by running this
+      # on a throwaway tag rather than during a real release.
       - name: Sign the checksum file
         if: ${{ !github.event.repository.private }}
         run: |
           cosign sign-blob --yes \
-            --output-signature dist/SHA256SUMS.sig \
-            --output-certificate dist/SHA256SUMS.pem \
+            --bundle dist/SHA256SUMS.sigstore.json \
+            dist/SHA256SUMS
+
+      # Producing a signature is not the same as producing a verifiable one. This checks the
+      # bundle back, pinned to this repository's release workflow and GitHub's OIDC issuer, so a
+      # signature that cannot be verified fails the release rather than shipping.
+      - name: Verify the signature we just made
+        if: ${{ !github.event.repository.private }}
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          cosign verify-blob \
+            --bundle dist/SHA256SUMS.sigstore.json \
+            --certificate-identity-regexp "^https://github.com/${REPO}/.github/workflows/release.yml@refs/" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             dist/SHA256SUMS
 
       # gh is preinstalled on the runner, so uploading needs no third-party action — one fewer
