@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 )
 
 // Status is the outcome for one component.

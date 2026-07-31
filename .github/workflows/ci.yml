@@ -59,6 +59,40 @@ jobs:
           path: coverage.out
           retention-days: 5
 
+  cataloger:
+    name: syft cataloger
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      # A separate module (ADR-0008), so `go test ./...` at the root does not reach it.
+      - name: Test
+        working-directory: cataloger
+        run: |
+          gofmt -l . | tee /dev/stderr | (! grep -q .)
+          go vet ./...
+          go test ./...
+
+      # The reason the cataloger is a separate module at all: the shipped binary must not
+      # acquire syft's 445-module dependency graph. Assert it, so a stray import cannot
+      # quietly undo the decision.
+      - name: The CLI must not depend on syft
+        run: |
+          if go list -m all | grep -q anchore/syft; then
+            echo "the root module now depends on syft — see ADR-0008"
+            go list -m all | grep anchore
+            exit 1
+          fi
+          echo "root module graph: $(go list -m all | wc -l) modules, no syft"
+
   bom:
     name: BOM conformance
     runs-on: ubuntu-latest

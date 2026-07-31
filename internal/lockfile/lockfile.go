@@ -15,7 +15,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 )
 
 // FormatVersion is the lockfile schema version. Consumers must refuse a version they do not

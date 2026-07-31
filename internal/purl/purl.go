@@ -9,7 +9,7 @@ package purl
 import (
 	"strings"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 )
 
 // Type is the proposed purl type from purl-spec#854.

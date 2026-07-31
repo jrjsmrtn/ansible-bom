@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 )
 
 // buildCollection writes a minimal but genuine collection layout: files, a FILES.json recording

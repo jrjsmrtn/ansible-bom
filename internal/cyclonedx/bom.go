@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"
 	"github.com/jrjsmrtn/ansible-bom/internal/purl"
 )

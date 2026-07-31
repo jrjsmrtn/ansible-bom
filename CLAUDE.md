@@ -82,6 +82,7 @@ Read these at the start of each session.
 | [0005](docs/adr/0005-two-tier-collection-and-role-model.md) | DATA MODEL | Roles carry no checksums; say so |
 | [0006](docs/adr/0006-declare-vulnerability-coverage-status.md) | OUTPUT CONTRACT | No OSV coverage, and it fails silently; label it |
 | [0007](docs/adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md) | PARSING CONTRACT | Schemas exist for authored files only; fixtures defend the rest |
+| [0008](docs/adr/0008-cataloger-as-a-separate-module.md) | PACKAGING | The cataloger is a separate module; the CLI must never import syft |
 
 ## Development Practices
 
@@ -117,6 +118,11 @@ lefthook run pre-commit
   opaque; do not parse it.
 - Role versions are inconsistently prefixed (`v0.3.2` alongside `3.5.0`). Normalise defensively.
 - purl construction lives in **exactly one function** so the 1.0 identity change is one edit.
+- **The CLI must never import syft.** It would take the dependency graph from 3 modules to 445
+  for a capability the CLI does not need. The cataloger is a separate module under `cataloger/`,
+  and CI asserts the root module stays syft-free (ADR-0008).
+- Parsers live in the **public** `content` package with reader-based decoders, because syft
+  parsers receive a reader and `internal/` cannot be imported by an upstream contribution.
 - `ansible-galaxy` has no plugin mechanism — there is no subcommand to extend. This is why the
   tool is standalone.
 - **`MANIFEST.json` and `FILES.json` have no JSON Schema anywhere** — the parser is the contract,

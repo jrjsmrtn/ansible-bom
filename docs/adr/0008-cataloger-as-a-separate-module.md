@@ -1,0 +1,110 @@
+# 8. Keep the syft Cataloger Out of the CLI Binary
+
+Date: 2026-07-31
+
+## Status
+
+Accepted — supersedes part of [ADR-0003](0003-go-with-a-syft-cataloger-strategy.md)
+
+## Context
+
+[ADR-0003](0003-go-with-a-syft-cataloger-strategy.md) chose Go on distribution grounds and stated
+the delivery shape as *"a syft cataloger for the BOM half, **embedded in that binary** via
+syft-as-a-library from the start"*. That was written before anyone measured what importing syft
+costs, or looked at the interface a cataloger has to satisfy.
+
+Both were measured on 2026-07-31.
+
+**Dependency cost.** A binary that imports nothing but `syft/pkg`:
+
+| | modules in the graph | binary |
+|---|---|---|
+| `ansible-bom` today | **3** | 2.9 MB |
+| importing `syft/pkg` alone | **445** | 3.9 MB |
+
+A 148× increase in dependency surface. For a tool whose purpose is telling people what is inside
+their software, and whose own SBOM currently lists three components, that is not a neutral cost.
+
+**And it buys `ansible-bom` users nothing.** The tool already emits CycloneDX natively. Embedding
+syft so that `ansible-bom` can run our own cataloger against content it already parses directly is
+circular. The cataloger's value is being *inside syft*, for syft's users — not inside a tool that
+does not need it.
+
+**The interface also does not fit the current code.** A syft cataloger is built from
+`generic.NewCataloger(name).WithParserByGlobs(parser, globs...)`, where a parser has the shape:
+
+```go
+type Parser func(context.Context, file.Resolver, *Environment, file.LocationReadCloser) (
+    []pkg.Package, []artifact.Relationship, error)
+```
+
+Parsers receive a **reader**; `ParseCollection`/`ParseRole` take a **directory path**. Reusing the
+parsing logic requires decoders that operate on bytes, with the path-based functions as thin
+wrappers.
+
+## Decision
+
+### 1. The CLI binary does not import syft
+
+`cmd/ansible-bom` keeps its three-module dependency graph. Nothing in the shipped binary depends
+on syft.
+
+### 2. The parsers become a public, reader-based API
+
+`internal/content` moves to `content`, and gains decoders that take bytes:
+
+- `DecodeManifest`, `DecodeFiles` — collections
+- `DecodeRoleMeta`, `DecodeInstallInfo` — roles
+
+`ParseCollection(dir)`, `ParseRole(dir)` and `Scan(root)` remain, as filesystem wrappers over
+those decoders. This is required regardless of where the cataloger lives: `internal/` cannot be
+imported by anything outside this repository, so an upstream contribution could not reuse a single
+line of it.
+
+### 3. The cataloger is a separate Go module
+
+`cataloger/` carries its own `go.mod` and its own syft dependency. It is not built into the CLI,
+does not affect the released binaries, and can be developed and tested against syft
+independently — which is also the form in which it is easiest to port into syft's own tree, since
+that is where an accepted cataloger would actually live.
+
+**Alternatives rejected**:
+
+| Alternative | Why not |
+|---|---|
+| Embed syft in the CLI, as ADR-0003 said | 3 → 445 modules for a capability the CLI does not need |
+| A build tag on a single module | The dependency still enters `go.mod`, so the module graph and `go.sum` grow for every consumer regardless of tags |
+| Duplicate the parsing logic in the cataloger | Two implementations of parsing that must agree about locale-formatted dates, placeholder manifest fields and version prefixes. They would diverge |
+| Wait for [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) before writing anything | ADR-0003 already settled this: the proposal is an accelerator, not a prerequisite. Writing it also makes the proposal concrete |
+
+## Consequences
+
+**Positive**:
+
+- The shipped binary and its SBOM stay small and honest.
+- The parsing logic has exactly one implementation, reachable by both the CLI and the cataloger.
+- Reader-based decoders are what an upstream contribution needs anyway.
+- The cataloger can track syft's API on its own schedule without touching the release artefacts.
+
+**Negative**:
+
+- Two modules in one repository: `go test ./...` at the root no longer covers everything, and CI
+  must run the cataloger's tests separately.
+- Promoting `content` to a public API means its shape is now something consumers can depend on,
+  and 0.x is the only window in which to change it freely.
+- The cataloger is unreleased and unreleasable as part of the binary, so it has no users until it
+  is either upstreamed or published separately.
+
+**Risks**:
+
+- *Interface drift.* syft's cataloger interface carries no stability guarantee. A separate module
+  contains the damage but does not prevent it.
+- *The proposal is declined.* Then the cataloger has no home, and the work is a sunk cost against
+  a distribution advantage that never materialises — the risk ADR-0003 already records.
+
+## References
+
+- [ADR-0003](0003-go-with-a-syft-cataloger-strategy.md) — the Go decision, whose delivery shape
+  this supersedes
+- [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) — the upstream proposal
+- syft `syft/pkg.Cataloger` and `syft/pkg/cataloger/generic` (v1.50.0)

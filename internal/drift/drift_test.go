@@ -3,7 +3,7 @@ package drift
 import (
 	"testing"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 	"github.com/jrjsmrtn/ansible-bom/internal/requirements"
 )
 

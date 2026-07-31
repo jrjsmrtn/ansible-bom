@@ -3,6 +3,7 @@ package content
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,81 @@ var roleMetaFiles = []string{"main.yml", "main.yaml", "main"}
 
 // ErrNotRole is returned when a directory has no role metadata.
 var ErrNotRole = errors.New("no meta/main.yml")
+
+// RoleMeta is the identity and dependencies a role's meta/main.yml declares.
+type RoleMeta struct {
+	Namespace    string
+	RoleName     string
+	Version      string
+	Dependencies map[string]string
+}
+
+// DecodeRoleMeta decodes meta/main.yml, covering both shapes the ansible-meta schema describes
+// as v1/v2 (ADR-0007). Unknown keys are ignored: this tool inventories, it does not lint.
+//
+// Reader-based so the same logic serves the filesystem walk and a syft cataloger (ADR-0008).
+func DecodeRoleMeta(r io.Reader) (RoleMeta, error) {
+	raw, err := io.ReadAll(r)
+	if err != nil {
+		return RoleMeta{}, fmt.Errorf("reading role metadata: %w", err)
+	}
+	var m roleMeta
+	if err := yaml.Unmarshal(raw, &m); err != nil {
+		return RoleMeta{}, fmt.Errorf("parsing role metadata: %w", err)
+	}
+	return RoleMeta{
+		Namespace:    m.GalaxyInfo.Namespace,
+		RoleName:     m.GalaxyInfo.RoleName,
+		Version:      m.GalaxyInfo.Version,
+		Dependencies: roleDependencies(m),
+	}, nil
+}
+
+// DecodeInstallInfo decodes meta/.galaxy_install_info, returning the version ansible-galaxy
+// recorded at install time. install_date is deliberately not returned: it is written in the
+// installing user's locale and must be treated as opaque (ADR-0002 §5).
+func DecodeInstallInfo(r io.Reader) (string, bool) {
+	raw, err := io.ReadAll(r)
+	if err != nil {
+		return "", false
+	}
+	var info installInfo
+	if err := yaml.Unmarshal(raw, &info); err != nil || info.Version == "" {
+		return "", false
+	}
+	return info.Version, true
+}
+
+// ComponentFromRoleMeta builds a Component from decoded role metadata.
+//
+// name is the role's directory name, which is the only reliable source of identity — role
+// metadata frequently omits namespace and role_name. installedVersion is what an installer
+// recorded, if anything; when absent the author-declared version is used, and when that is absent
+// too the component is left unversioned rather than given a placeholder.
+func ComponentFromRoleMeta(name string, m RoleMeta, installedVersion string) Component {
+	c := Component{
+		Kind:         KindRole,
+		Dependencies: m.Dependencies,
+		Tier:         TierNameVersionOnly,
+		Coverage:     CoverageNotCovered,
+		Origin:       OriginLocal,
+	}
+	if ns, n, found := strings.Cut(name, "."); found {
+		c.Namespace, c.Name = ns, n
+	} else if m.Namespace != "" && m.RoleName != "" {
+		c.Namespace, c.Name = m.Namespace, m.RoleName
+	} else {
+		c.Name = name
+	}
+	switch {
+	case installedVersion != "":
+		c.Version = NormaliseVersion(installedVersion)
+		c.Origin = OriginGalaxy
+	case m.Version != "":
+		c.Version = NormaliseVersion(m.Version)
+	}
+	return c
+}
 
 // installInfo is written by ansible-galaxy when it installs a role.
 //
@@ -59,41 +135,21 @@ func ParseRole(dir string) (Component, error) {
 		return Component{}, ErrNotRole
 	}
 
-	raw, err := os.ReadFile(metaPath)
+	f, err := os.Open(metaPath)
 	if err != nil {
 		return Component{}, fmt.Errorf("reading %s: %w", metaPath, err)
 	}
+	defer f.Close()
 
-	var m roleMeta
-	// Role metadata in the wild contains keys no schema anticipates. Unknown keys are ignored
-	// rather than rejected: this tool inventories, it does not lint (ADR-0007).
-	if err := yaml.Unmarshal(raw, &m); err != nil {
-		return Component{}, fmt.Errorf("parsing %s: %w", metaPath, err)
+	m, err := DecodeRoleMeta(f)
+	if err != nil {
+		return Component{}, fmt.Errorf("%s: %w", metaPath, err)
 	}
 
-	namespace, name := roleIdentity(dir, m)
+	installed, _ := readInstallInfo(dir)
 
-	c := Component{
-		Kind:           KindRole,
-		Namespace:      namespace,
-		Name:           name,
-		Path:           dir,
-		Origin:         OriginLocal,
-		Tier:           TierNameVersionOnly,
-		Coverage:       CoverageNotCovered,
-		Dependencies:   roleDependencies(m),
-		ManifestFormat: 0, // roles have no manifest format
-	}
-
-	if v, ok := readInstallInfo(dir); ok {
-		c.Version = NormaliseVersion(v)
-		c.Origin = OriginGalaxy
-	} else if m.GalaxyInfo.Version != "" {
-		// A version declared by the author, not recorded by an installer. Weaker, but better
-		// than nothing — and still not defaulted when absent.
-		c.Version = NormaliseVersion(m.GalaxyInfo.Version)
-	}
-
+	c := ComponentFromRoleMeta(filepath.Base(dir), m, installed)
+	c.Path = dir
 	return c, nil
 }
 
@@ -107,35 +163,13 @@ func findRoleMeta(dir string) (string, bool) {
 	return "", false
 }
 
-// roleIdentity derives namespace and name.
-//
-// Galaxy-installed roles land in a directory named "namespace.rolename"; that directory name is
-// the only reliable source, because role metadata frequently omits namespace and role_name. When
-// the directory carries no dot the role is local and has no namespace.
-func roleIdentity(dir string, m roleMeta) (namespace, name string) {
-	base := filepath.Base(dir)
-	if ns, n, found := strings.Cut(base, "."); found {
-		return ns, n
-	}
-	if m.GalaxyInfo.Namespace != "" && m.GalaxyInfo.RoleName != "" {
-		return m.GalaxyInfo.Namespace, m.GalaxyInfo.RoleName
-	}
-	return "", base
-}
-
 func readInstallInfo(dir string) (string, bool) {
-	raw, err := os.ReadFile(filepath.Join(dir, roleMetaDir, installInfoFile))
+	f, err := os.Open(filepath.Join(dir, roleMetaDir, installInfoFile))
 	if err != nil {
 		return "", false
 	}
-	var info installInfo
-	if err := yaml.Unmarshal(raw, &info); err != nil {
-		return "", false
-	}
-	if info.Version == "" {
-		return "", false
-	}
-	return info.Version, true
+	defer f.Close()
+	return DecodeInstallInfo(f)
 }
 
 // roleDependencies flattens role meta dependencies, which may be bare strings or mappings.

@@ -8,7 +8,7 @@ package drift
 import (
 	"sort"
 
-	"github.com/jrjsmrtn/ansible-bom/internal/content"
+	"github.com/jrjsmrtn/ansible-bom/content"
 	"github.com/jrjsmrtn/ansible-bom/internal/requirements"
 )
 
