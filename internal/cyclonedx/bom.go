@@ -119,6 +119,10 @@ func New(inv content.Inventory, opts Options) (BOM, error) {
 		},
 	}
 
+	// Explicitly non-nil: a nil slice marshals to `null`, and the CycloneDX schema requires
+	// `components` to be an array. An empty inventory must still produce a valid document.
+	b.Components = []Component{}
+
 	refs := map[string]string{} // component FQN -> bom-ref
 	for _, c := range inv.Components {
 		ref := purl.For(c)

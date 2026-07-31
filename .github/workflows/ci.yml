@@ -121,7 +121,7 @@ jobs:
       # that fails the published schema would make every consumer's ingestion our problem.
       - name: Emit and validate a CycloneDX BOM
         run: |
-          go run ./cmd/ansible-bom scan internal/content/testdata/tree > bom.json
+          go run ./cmd/ansible-bom scan content/testdata/tree > bom.json
           python3 scripts/validate-bom.py bom.json
 
   vulnerabilities:

@@ -218,3 +218,25 @@ func TestMarshalIsValidJSON(t *testing.T) {
 		}
 	}
 }
+
+// A nil slice marshals to `null`, and the CycloneDX schema requires `components` to be an array.
+// An empty inventory must still produce a valid document — CI caught this by scanning a path that
+// no longer existed and getting "components: None is not of type 'array'".
+func TestEmptyInventoryProducesAValidComponentsArray(t *testing.T) {
+	b := build(t, content.Inventory{})
+	if b.Components == nil {
+		t.Fatal("Components is nil; it must be an empty array")
+	}
+
+	out, err := Marshal(b)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(out, &raw); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if _, ok := raw["components"].([]any); !ok {
+		t.Errorf("components serialised as %T, want an array", raw["components"])
+	}
+}
