@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-31
+
+First release. All four commands work; identifiers are provisional until v1.0.
+
 ### Added
 
 - SPARK inception analysis, measured against a real Ansible control node
@@ -73,3 +77,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
+
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jrjsmrtn/ansible-bom/releases/tag/v0.1.0
