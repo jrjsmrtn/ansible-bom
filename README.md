@@ -4,8 +4,8 @@
 node — collections *and* legacy roles — and produces the lockfile Ansible Galaxy never shipped, a
 drift report against your `requirements.yml`, and a CycloneDX bill of materials.
 
-> **Status: pre-release (0.x).** `lock`, `drift`, `scan` and `verify` work. The syft cataloger is
-> not built yet. Component identifiers
+> **Status: pre-release (0.x).** All four commands work, and syft catalogers exist as a separate
+> module. Component identifiers are provisional until v1.0 — see [Design notes](#design-notes). Component identifiers
 > are provisional until v1.0 — see [Design notes](#design-notes) and [Roadmap](#roadmap).
 
 ---
@@ -30,7 +30,7 @@ Ansible Galaxy has no lockfile. The feature was requested against trackers now a
 once in `mazer`, and abandoned with it in 2020. Meanwhile no mainstream SBOM generator catalogs
 Ansible content at all — `syft` covers 61 ecosystems; Ansible is not among them.
 
-## What it will do
+## What it does
 
 | Command | Purpose |
 |---|---|
@@ -67,13 +67,17 @@ identifiers that may still change.
 
 ## Roadmap
 
-| Milestone | Content |
-|---|---|
-| 0.1 | Collection + role inventory; `lock` — **done** |
-| 0.2 | `drift` against `requirements.yml` — **done** |
-| 0.3 | `scan` — CycloneDX output — **done** |
-| 0.4 | `verify` — **done**; syft cataloger — pending [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) |
-| 1.0 | Gated on the `ansible` purl type being approved and implemented |
+| Milestone | Content | State |
+|---|---|---|
+| M1 Inventory | Collection and role parsing; `lock` | done |
+| M2 Drift | `drift` against `requirements.yml` | done |
+| M3 BOM | `scan` — CycloneDX output | done |
+| M4 Integrity | `verify` against recorded checksums | done |
+| M5 Upstream | syft catalogers | built; awaiting [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) |
+| **v1.0** | **Gated on the `ansible` purl type being approved and implemented** | blocked upstream |
+
+Milestones are deliberately *not* version numbers. M1–M4 all shipped within v0.1.x, and release
+versions track the published contract rather than this list.
 
 Deferred: collection signature verification, Execution Environment images as an input, TEA
 publishing. Explicitly out of scope: dependency resolution, installation, and modelling what

@@ -11,12 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-31
+
+Publishes the parsers as a public API and adds syft catalogers as a separate module. No change to
+the CLI's behaviour or to its dependency graph, which remains three modules.
+
 ### Added
 
 - `cataloger/`: syft catalogers for Ansible collections and legacy roles, as a **separate Go
   module** so the shipped CLI never acquires syft's dependency graph — measured at 3 modules
   versus 445 (ADR-0008). Tested through syft's real directory resolver
 - CI asserts the root module remains free of syft
+- Direct tests for the reader-based decoders, which are the public contract this release
+  publishes and were previously exercised only through the path-based wrappers
 
 ### Changed
 
@@ -25,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path-based functions. syft parsers are handed a reader, and `internal/` cannot be imported by an
   upstream contribution, so neither the cataloger nor a future syft PR could have reused a single
   line of the previous shape
+- A nonexistent content root is now an error. It previously produced a valid, empty BOM, making a
+  typo'd path indistinguishable from a control node with nothing installed
+- An empty inventory now serialises `"components": []` rather than `null`, which the CycloneDX
+  schema rejects
+- README milestones are labelled M1–M5 rather than 0.1–0.4: those were never version numbers, and
+  once v0.2.0 existed the collision was actively misleading
 
 ## [0.1.1] - 2026-07-31
 
@@ -120,6 +133,7 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jrjsmrtn/ansible-bom/releases/tag/v0.1.0
