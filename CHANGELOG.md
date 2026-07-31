@@ -11,16 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-31
+
+Ships artifacts for the first time. No change to the tool's behaviour — every change here is to
+what a release publishes and how.
+
 ### Added
 
 - Release workflow: cross-compiled binaries for linux/darwin/windows on amd64 and arm64, a
   `SHA256SUMS` file, and a CycloneDX SBOM **per binary**, catalogued from the built artefact so it
-  records the linked Go module graph and `pkg:golang/stdlib`, with a CI assertion that fails the
-  release if the scan ever catalogues the wrong subject
+  records the linked Go module graph and `pkg:golang/stdlib`
 - SLSA build provenance and cosign signing of the checksum file, both gated on the repository
-  being public — keyless signing publishes the repository identity to a public transparency log
+  being public — keyless signing publishes the repository identity to a public transparency log,
+  which would defeat the point of keeping the repository private
+- CI assertions on every released SBOM: it must carry Go components including `stdlib`, must not
+  catalogue CI configuration, must not include the PE cataloger's filename-derived identifiers,
+  and must contain no absolute build paths
+
+### Changed
+
 - Version is injected from the git tag at build time and defaults to `dev`, so an untagged local
-  build cannot claim to be a release
+  build cannot claim to be a release. **v0.1.0's binaries report `0.1.0` rather than `v0.1.0`**
+  because that tag predates the change; v0.1.1 is the first release where injection takes effect
+- Release SBOMs are catalogued from the binaries rather than the repository directory. The
+  previous approach returned 23 components of which 16 were the GitHub Actions workflow files,
+  and missed the Go standard library entirely
+- Release SBOMs no longer embed the absolute path they were scanned from
 
 ## [0.1.0] - 2026-07-31
 
@@ -89,5 +105,6 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jrjsmrtn/ansible-bom/releases/tag/v0.1.0
