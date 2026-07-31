@@ -98,8 +98,33 @@ would add ceremony without saving time:
 - `go vet` — static analysis
 - `go test ./...` — the suite is a parser test suite and will stay quick
 
-CI will run the same checks plus a build matrix. Dependency auditing (`govulncheck`) belongs in CI
-and on a schedule, since hooks are bypassable and new advisories arrive without commits.
+CI runs the same checks — `gofmt`, `go vet`, `go test` — so a difference in *what* is checked can
+never be the reason something works locally and fails in CI. It adds what a hook cannot:
+`go test -race`, `govulncheck`, and CycloneDX schema conformance for emitted BOMs.
+
+**GitHub Actions hardening** (`.github/workflows/`):
+
+- **Every action is SHA-pinned** to a full 40-character commit, with a `# vX.Y.Z` comment. A
+  mutable tag can be repointed upstream at any time. There is currently **no exception** to this
+  rule; the one the ecosystem sanctions — `slsa-framework/slsa-github-generator`, which verifies
+  its own release tag — does not apply until this project ships artifacts.
+- **`permissions: contents: read`** at the top of every workflow, elevated per job only where
+  genuinely needed. Only the Scorecard job elevates, for SARIF upload and OIDC.
+- **`persist-credentials: false`** on every checkout, so no token is left on disk.
+- **Pinned toolchains**: Go from `go.mod`, `govulncheck` at an exact version, `jsonschema` at an
+  exact version. No `curl | sh`, no `latest`.
+- **Dependabot** keeps both the Go modules and the SHA pins current, with a **7-day cooldown**:
+  pinning and an update bot are one control, and a bot that adopts a release within minutes of
+  publication would deliver a compromise faster than a human. Security updates bypass the
+  cooldown by default.
+- `concurrency` cancellation and `timeout-minutes` on every job; a runaway job holds a token.
+
+**Known gap**: the Python dependency for BOM validation is version-pinned but not hash-pinned.
+`--require-hashes` needs a generated lockfile covering platform-specific wheels; claiming it
+before that exists would assert a control we do not have.
+
+`govulncheck` also runs on a weekly schedule, because a branch that is not seeing commits can
+become vulnerable without anyone touching it.
 
 ### 7. Publishability from the first commit
 

@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default, unlike the other commands
 - CLI end-to-end tests covering all four commands, their flags and their exit codes
 - exit status 2 for a malformed invocation, distinct from 1 for a failed operation
+- GitHub Actions CI: build, gofmt, vet, race-enabled tests with coverage, govulncheck,
+  CycloneDX schema conformance, and dependency review on PRs
+- OpenSSF Scorecard workflow plus a weekly scheduled govulncheck
+- Dependabot for Go modules and GitHub Actions, with a 7-day cooldown
+- all actions SHA-pinned; read-only default token permissions; no credentials persisted
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one

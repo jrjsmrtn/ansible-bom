@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    groups:
+      go:
+        patterns: ["*"]
+    # A bot that adopts a release within minutes of publication delivers a compromise faster
+    # than any human would. Security updates are exempt from this by default, so fixes for
+    # known vulnerabilities still arrive immediately.
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    groups:
+      actions:
+        patterns: ["*"]
+    # SHA-pinned actions go stale without this. Pinning and an update bot are one control,
+    # not two — see .github/workflows/ci.yml.
+    cooldown:
+      default-days: 7
