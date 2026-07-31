@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Release workflow: cross-compiled binaries for linux/darwin/windows on amd64 and arm64, a
-  `SHA256SUMS` file, and a CycloneDX SBOM of the tool's own Go dependencies
+  `SHA256SUMS` file, and a CycloneDX SBOM **per binary**, catalogued from the built artefact so it
+  records the linked Go module graph and `pkg:golang/stdlib`, with a CI assertion that fails the
+  release if the scan ever catalogues the wrong subject
 - SLSA build provenance and cosign signing of the checksum file, both gated on the repository
   being public — keyless signing publishes the repository identity to a public transparency log
 - Version is injected from the git tag at build time and defaults to `dev`, so an untagged local
