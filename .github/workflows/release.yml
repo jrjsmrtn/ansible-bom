@@ -247,10 +247,20 @@ jobs:
           # explicitly unstable until the ansible purl type is registered (ADR-0004).
           prerelease=""
           case "$TAG" in v0.*) prerelease="--prerelease" ;; esac
-          # --verify-tag refuses to invent a tag; --notes-from-tag uses the signed annotation,
-          # which is the authoritative description of what the release is.
+          # The signed tag annotation is the authoritative description of the release, so the
+          # notes come from it. `--notes-from-tag` cannot be combined with `--repo`, so the
+          # annotation is read explicitly rather than relying on gh inferring the repository
+          # from the working directory.
+          ref_sha=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.sha')
+          ref_type=$(gh api "repos/$REPO/git/ref/tags/$TAG" --jq '.object.type')
+          if [ "$ref_type" = "tag" ]; then
+            gh api "repos/$REPO/git/tags/$ref_sha" --jq '.message' > notes.md
+          else
+            echo "Lightweight tag — no annotation to describe this release." > notes.md
+          fi
+          # --verify-tag refuses to invent a tag that does not already exist on the remote.
           gh release create "$TAG" --repo "$REPO" --verify-tag --title "$TAG" \
-            --notes-from-tag $prerelease
+            --notes-file notes.md $prerelease
 
       - name: Upload assets
         env:
