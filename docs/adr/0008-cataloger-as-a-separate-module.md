@@ -94,6 +94,13 @@ that is where an accepted cataloger would actually live.
   and 0.x is the only window in which to change it freely.
 - The cataloger is unreleased and unreleasable as part of the binary, so it has no users until it
   is either upstreamed or published separately.
+- **The module is not independently consumable.** It depends on the parent through a `replace`
+  directive, and `replace` is ignored when a module is consumed as a dependency — so `go get` of
+  the cataloger would fail on the placeholder version. No published tag helps: `content` was
+  `internal/content` until 2026-07-31, so neither v0.1.0 nor v0.1.1 contains it. Accepted for now
+  because the destination is syft's own tree, where neither the `replace` nor the parent
+  dependency travels with it. Resolved by dropping the `replace` and requiring a real version once
+  a tag exists that contains `content/`.
 
 **Risks**:
 
