@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "name": ".",
+      "ftype": "dir",
+      "chksum_type": null,
+      "chksum_sha256": null,
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines",
+      "ftype": "dir",
+      "chksum_type": null,
+      "chksum_sha256": null,
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/aggregate-coverage.sh",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "a66c319d17b506827f37213502826713230920d629d63a0af58c445d36aa83b4",
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/combine-coverage.py",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "49d3567c21d253290b5c075e250b1460ea46c3f33b7d25a8994447824aa19279",
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/process-results.sh",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "9431997ce33a94d4c5d3b13be6958762087f7fc18785b92a7977f6f55d5b99d5",
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/publish-codecov.py",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "31c38e5c2f6021b3762c52c5c55f9fb565586b69e998b36519d3072608564546",
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/report-coverage.sh",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "0d61f921311b94d2c00733ba8c1e6fcdb34f6dc0236e99595e57ea54f4811197",
+      "format": 1
+    },
+    {
+      "name": ".azure-pipelines/scripts/run-tests.sh",
+      "ftype": "file",
+      "chksum_type": "sha256",
+      "chksum_sha256": "237b5604b5f4581824888ef0c2c58594248fa05c46e59b502b525d80c90ffd92",
+      "format": 1
+    }
+  ],
+  "format": 1
+}

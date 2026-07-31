@@ -98,8 +98,65 @@ would add ceremony without saving time:
 - `go vet` — static analysis
 - `go test ./...` — the suite is a parser test suite and will stay quick
 
-CI will run the same checks plus a build matrix. Dependency auditing (`govulncheck`) belongs in CI
-and on a schedule, since hooks are bypassable and new advisories arrive without commits.
+A `post-merge` hook runs `scripts/sync-remotes.sh`, which pushes the current branch to every
+remote that already tracks it. This repository has more than one remote, and a pull request
+merged on one forge lands only there — after which `git pull` against the stale remote reports
+"Already up to date", which is true and thoroughly misleading. A hook cannot observe a merge that
+happened remotely, so it fires when the merge *arrives* locally and pushes it onward.
+
+It is fast-forward only, never forces, only touches branches a remote already has, and always
+exits 0 — a remote being unreachable must not fail a merge that already succeeded. It names no
+remote and no host, so it is safe in a public repository and works on whatever remotes are
+configured.
+
+CI runs the same checks — `gofmt`, `go vet`, `go test` — so a difference in *what* is checked can
+never be the reason something works locally and fails in CI. It adds what a hook cannot:
+`go test -race`, `govulncheck`, and CycloneDX schema conformance for emitted BOMs.
+
+**GitHub Actions hardening** (`.github/workflows/`):
+
+- **Every action is SHA-pinned** to a full 40-character commit, with a `# vX.Y.Z` comment. A
+  mutable tag can be repointed upstream at any time. There is currently **no exception** to this
+  rule; the one the ecosystem sanctions — `slsa-framework/slsa-github-generator`, which verifies
+  its own release tag — does not apply until this project ships artifacts.
+- **`permissions: contents: read`** at the top of every workflow, elevated per job only where
+  genuinely needed. Only the Scorecard job elevates, for SARIF upload and OIDC.
+- **`persist-credentials: false`** on every checkout, so no token is left on disk.
+- **Pinned toolchains**: Go from `go.mod`, `govulncheck` at an exact version, `jsonschema` at an
+  exact version. No `curl | sh`, no `latest`.
+- **Dependabot** keeps both the Go modules and the SHA pins current, with a **7-day cooldown**:
+  pinning and an update bot are one control, and a bot that adopts a release within minutes of
+  publication would deliver a compromise faster than a human. Security updates bypass the
+  cooldown by default.
+- `concurrency` cancellation and `timeout-minutes` on every job; a runaway job holds a token.
+
+**Known gap**: the Python dependency for BOM validation is version-pinned but not hash-pinned.
+`--require-hashes` needs a generated lockfile covering platform-specific wheels; claiming it
+before that exists would assert a control we do not have.
+
+`govulncheck` also runs on a weekly schedule, because a branch that is not seeing commits can
+become vulnerable without anyone touching it.
+
+**Several supply-chain controls only function on a public repository**, so the private phase runs
+a reduced but honest set rather than a set that appears to run and does not. Both were verified by
+running them, not assumed:
+
+| Control | Private | Reason |
+|---|---|---|
+| OpenSSF Scorecard | gated off | needs GraphQL access the default token lacks on private repos |
+| Dependency review | gated off | needs GitHub Advanced Security on private repos |
+| Everything else | runs | build, gofmt, vet, race tests, govulncheck, BOM conformance |
+
+Both carry `if: ${{ !github.event.repository.private }}` and activate by themselves at the
+`public-release` gate, so neither is a step to remember.
+
+**OpenSSF Scorecard is gated on the repository being public**, and is inert until then. Verified
+by running it: on a private repository the action fails with `Resource not accessible by
+integration`, because it queries the GitHub GraphQL API which the default `GITHUB_TOKEN` cannot
+reach for private repos. The documented workaround is a personal access token — a long-lived
+secret added to CI solely to grade a repository whose results cannot be published while private.
+That trade is not worth it, so the job carries `if: ${{ !github.event.repository.private }}` and
+starts working by itself at the `public-release` gate.
 
 ### 7. Publishability from the first commit
 

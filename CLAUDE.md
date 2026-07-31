@@ -61,8 +61,9 @@ Out of scope, decided at inception — do not drift into these:
 
 - **Dependency resolution.** The tool observes what `ansible-galaxy` did. It never resolves.
 - **Installing anything.** Read-only against the filesystem.
-- **Vulnerability matching.** No Ansible ecosystem exists in OSV. The output is correct; no
-  scanner matches it yet.
+- **Vulnerability matching.** No Ansible ecosystem exists in OSV — confirmed by POC-2, and an
+  unregistered purl returns an empty result rather than an error. Never imply a scan happened
+  (ADR-0006).
 - **OBOM of managed hosts.** What playbooks *deploy* is a different, harder document.
 
 Deferred (not rejected): collection signature verification, Execution Environment images as an
@@ -79,6 +80,8 @@ Read these at the start of each session.
 | [0003](docs/adr/0003-go-with-a-syft-cataloger-strategy.md) | WHAT TECH | Go, two delivery surfaces, Apache-2.0 |
 | [0004](docs/adr/0004-provisional-purl-identifiers.md) | IDENTITY | `pkg:ansible` provisional; 1.0 gate |
 | [0005](docs/adr/0005-two-tier-collection-and-role-model.md) | DATA MODEL | Roles carry no checksums; say so |
+| [0006](docs/adr/0006-declare-vulnerability-coverage-status.md) | OUTPUT CONTRACT | No OSV coverage, and it fails silently; label it |
+| [0007](docs/adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md) | PARSING CONTRACT | Schemas exist for authored files only; fixtures defend the rest |
 
 ## Development Practices
 
@@ -116,6 +119,11 @@ lefthook run pre-commit
 - purl construction lives in **exactly one function** so the 1.0 identity change is one edit.
 - `ansible-galaxy` has no plugin mechanism — there is no subcommand to extend. This is why the
   tool is standalone.
+- **`MANIFEST.json` and `FILES.json` have no JSON Schema anywhere** — the parser is the contract,
+  so fixtures are load-bearing and `format` is a hard version gate (ADR-0007). `requirements.yml`,
+  `meta/main.yml` and `galaxy.yml` *do* have schemas in `ansible/schemas`; use them as a design
+  reference, never as a runtime validator.
+- Role `meta/main.yml` has **two shapes** (v1/v2 per `ansible-meta.json`). Handle both.
 
 **AI leads**: parsers, table-driven tests, fixture capture, CycloneDX emission.
 **Human leads**: identity decisions, upstream engagement with syft, scope boundaries, what goes

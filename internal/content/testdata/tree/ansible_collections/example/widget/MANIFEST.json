@@ -1,0 +1,30 @@
+{
+  "collection_info": {
+    "authors": [
+      "your name <example@example.com>"
+    ],
+    "dependencies": {},
+    "description": "your collection description",
+    "documentation": "http://docs.example.com",
+    "homepage": "http://example.com",
+    "issues": "http://example.com/issue/tracker",
+    "license": [
+      "MIT"
+    ],
+    "license_file": null,
+    "name": "widget",
+    "namespace": "example",
+    "readme": "README.md",
+    "repository": "https://www.github.com/my_org/my_collection",
+    "tags": [],
+    "version": "0.1.0"
+  },
+  "file_manifest_file": {
+    "chksum_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "chksum_type": "sha256",
+    "format": 1,
+    "ftype": "file",
+    "name": "FILES.json"
+  },
+  "format": 1
+}

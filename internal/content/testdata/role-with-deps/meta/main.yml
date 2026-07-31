@@ -1,0 +1,15 @@
+galaxy_info:
+  author: example
+  namespace: example
+  role_name: composite
+  version: 2.1.0
+  license: Apache-2.0
+dependencies:
+  - example.base
+  - role: example.database
+    version: 1.4.0
+  - name: example.cache
+    version: "0.9"
+  - src: https://example.com/roles/legacy.tar.gz
+collections:
+  - community.general

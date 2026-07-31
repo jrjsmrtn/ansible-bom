@@ -25,3 +25,11 @@ pre-commit:
     test:
       glob: "*.go"
       run: go test ./...
+
+# A pull request merged on one forge lands only there. Once the merge arrives locally, push it
+# onward so the other remote does not silently fall behind — `git pull` against a stale remote
+# reports "Already up to date", which is true and misleading.
+post-merge:
+  commands:
+    sync-remotes:
+      run: scripts/sync-remotes.sh

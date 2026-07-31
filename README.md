@@ -4,8 +4,9 @@
 node — collections *and* legacy roles — and produces the lockfile Ansible Galaxy never shipped, a
 drift report against your `requirements.yml`, and a CycloneDX bill of materials.
 
-> **Status: pre-release (0.x).** Not yet usable. This repository currently contains the design
-> analysis and decision records. See [Roadmap](#roadmap).
+> **Status: pre-release (0.x).** `lock`, `drift`, `scan` and `verify` work. The syft cataloger is
+> not built yet. Component identifiers
+> are provisional until v1.0 — see [Design notes](#design-notes) and [Roadmap](#roadmap).
 
 ---
 
@@ -36,7 +37,7 @@ Ansible content at all — `syft` covers 61 ecosystems; Ansible is not among the
 | `ansible-bom lock` | Emit a resolved lockfile from the installed tree — every collection and role at its exact version |
 | `ansible-bom drift` | Compare installed content against `requirements.yml`: undeclared transitive content, unpinned declarations, version mismatches, mutable git sources |
 | `ansible-bom scan` | Emit a CycloneDX BOM with purl identity, file hashes, licences and the dependency graph |
-| `ansible-bom verify` | Check installed files against the checksums recorded at install time |
+| `ansible-bom verify` | Check installed files against the checksums recorded at install time. Answers "has anything changed since installation?" — not "is this what upstream published?", which needs the Galaxy server or a signature |
 
 Read-only, offline, no Galaxy credentials, no change to how you install content today.
 
@@ -68,10 +69,10 @@ identifiers that may still change.
 
 | Milestone | Content |
 |---|---|
-| 0.1 | Collection + role inventory; `lock` |
-| 0.2 | `drift` against `requirements.yml` |
-| 0.3 | `scan` — CycloneDX output |
-| 0.4 | `verify`; syft cataloger |
+| 0.1 | Collection + role inventory; `lock` — **done** |
+| 0.2 | `drift` against `requirements.yml` — **done** |
+| 0.3 | `scan` — CycloneDX output — **done** |
+| 0.4 | `verify` — **done**; syft cataloger — pending [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) |
 | 1.0 | Gated on the `ansible` purl type being approved and implemented |
 
 Deferred: collection signature verification, Execution Environment images as an input, TEA
