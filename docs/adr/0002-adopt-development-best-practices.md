@@ -98,6 +98,17 @@ would add ceremony without saving time:
 - `go vet` — static analysis
 - `go test ./...` — the suite is a parser test suite and will stay quick
 
+A `post-merge` hook runs `scripts/sync-remotes.sh`, which pushes the current branch to every
+remote that already tracks it. This repository has more than one remote, and a pull request
+merged on one forge lands only there — after which `git pull` against the stale remote reports
+"Already up to date", which is true and thoroughly misleading. A hook cannot observe a merge that
+happened remotely, so it fires when the merge *arrives* locally and pushes it onward.
+
+It is fast-forward only, never forces, only touches branches a remote already has, and always
+exits 0 — a remote being unreachable must not fail a merge that already succeeded. It names no
+remote and no host, so it is safe in a public repository and works on whatever remotes are
+configured.
+
 CI runs the same checks — `gofmt`, `go vet`, `go test` — so a difference in *what* is checked can
 never be the reason something works locally and fails in CI. It adds what a hook cannot:
 `go test -race`, `govulncheck`, and CycloneDX schema conformance for emitted BOMs.

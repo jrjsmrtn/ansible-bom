@@ -67,6 +67,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenSSF Scorecard workflow plus a weekly scheduled govulncheck
 - Dependabot for Go modules and GitHub Actions, with a 7-day cooldown
 - all actions SHA-pinned; read-only default token permissions; no credentials persisted
+- `post-merge` hook (`scripts/sync-remotes.sh`) propagating a merged branch to every remote that
+  already tracks it, so a pull request merged on one forge does not leave the other silently
+  behind
 - Upstream cataloger proposal opened at anchore/syft#5129
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
