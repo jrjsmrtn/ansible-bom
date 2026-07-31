@@ -131,6 +131,18 @@ this author's projects.
   Consequence for CI: the cataloger job reads `cataloger/go.mod` rather than the root one. Reading
   the root would select 1.23 and fail to build syft.
 
+  **A second consequence, caught by CI immediately after the change.** The declared floor is what
+  a *consumer* needs; it is not the toolchain to *build* with. Every workflow read
+  `go-version-file: go.mod`, so lowering the floor silently moved CI and the release build onto
+  go1.23.0 — which carries `GO-2026-4602` and `GO-2025-3750` in `os`, a package this code calls
+  constantly. `govulncheck` failed the build and said so.
+
+  Released binaries embed the standard library they are built with, and each binary's own SBOM
+  records `pkg:golang/stdlib@<version>`, so shipping the floor would have published a known-
+  vulnerable stdlib *and* recorded the fact in the accompanying BOM. Builds now use
+  `go-version: stable`; a separate `floor` job builds and tests at exactly the declared minimum,
+  proving the compatibility claim without treating an old toolchain as shippable.
+
 ## References
 
 - [SPARK analysis](../inception/spark-analysis.md) — technology options, distribution reasoning

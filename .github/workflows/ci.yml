@@ -25,10 +25,14 @@ jobs:
         with:
           persist-credentials: false
 
+      # A CURRENT toolchain, deliberately not go.mod's floor. The `go` directive states the
+      # minimum a consumer needs; building with exactly that minimum means building against the
+      # oldest, least patched standard library. govulncheck caught this: go1.23.0 carries
+      # GO-2026-4602 and GO-2025-3750 in `os`, which this code calls constantly.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          check-latest: false
+          go-version: stable
+          check-latest: true
 
       # Mirrors the local pre-commit gate (.lefthook.yml) so "works locally, fails in CI"
       # cannot happen through a difference in what is checked.
@@ -58,6 +62,26 @@ jobs:
           name: coverage
           path: coverage.out
           retention-days: 5
+
+  floor:
+    name: Go floor compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Exactly the version go.mod declares, which is the point: it proves the compatibility
+      # claim is real rather than aspirational. Deliberately no govulncheck here — an old
+      # toolchain has old stdlib advisories by definition, and that is a reason not to SHIP it,
+      # not a reason to stop supporting it.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - run: go build ./... && go test ./...
 
   cataloger:
     name: syft cataloger
@@ -106,8 +130,8 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          check-latest: false
+          go-version: stable
+          check-latest: true
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -137,8 +161,8 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          check-latest: false
+          go-version: stable
+          check-latest: true
 
       # Hooks are local and bypassable with --no-verify; this is the enforcing copy.
       # The scheduled run in scorecard.yml catches advisories disclosed against branches

@@ -30,10 +30,14 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
           persist-credentials: false
 
+      # A CURRENT toolchain, never go.mod's floor. Released binaries embed the standard library
+      # they were built with, so building at the declared minimum would ship a stdlib carrying
+      # known advisories — and every binary's own SBOM records the version, so it would be
+      # visible to anyone who looked.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          check-latest: false
+          go-version: stable
+          check-latest: true
 
       # Reproducibility, not paranoia: -trimpath removes absolute build paths, CGO_ENABLED=0
       # produces a static binary with no host libc dependency, and the version is injected from

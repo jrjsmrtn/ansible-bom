@@ -3,7 +3,7 @@
 `MANIFEST.json` and `FILES.json` have no JSON Schema anywhere — their structure exists only as a
 dict literal in `ansible-core`'s `_build_manifest()`. These fixtures are therefore the closest
 thing to a specification for those formats that exists, which makes them load-bearing rather than
-convenient. See [ADR-0007](../../../docs/adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md).
+convenient. See [ADR-0007](../../docs/adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md).
 
 Do not "tidy" these files. They are shaped like reality, including the parts of reality that are
 ugly.
