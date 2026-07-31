@@ -68,9 +68,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # The cataloger's Go floor is syft's, not ours: syft requires a far newer toolchain than
+      # the CLI does. Reading the root go.mod here would pick 1.23 and fail to build.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version-file: cataloger/go.mod
           check-latest: false
 
       # A separate module (ADR-0008), so `go test ./...` at the root does not reach it.

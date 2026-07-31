@@ -1,6 +1,6 @@
 module github.com/jrjsmrtn/ansible-bom/cataloger
 
-go 1.26.5
+go 1.26.3
 
 // The cataloger consumes the parsers from the parent module through a replace directive.
 //

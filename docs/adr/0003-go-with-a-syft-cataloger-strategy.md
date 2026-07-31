@@ -108,9 +108,28 @@ this author's projects.
 - *Upstream rejection or stall.* The strategic value is syft's reach; if that path closes, the
   standalone binary still works but the advantage over Python largely evaporates. Mitigate by
   opening a proposal issue **before** the code shape is fixed.
-- *Go version floor.* `go.mod` currently declares the toolchain version in use. Lower it to the
-  oldest supported Go before public release; requiring the newest release would exclude the
-  enterprise CI this targets.
+- ~~*Go version floor.*~~ **Closed 2026-07-31, at the public-release gate.**
+
+  `go.mod` had declared `go 1.26.5` — simply the toolchain that happened to be installed — which
+  would have excluded the enterprise CI this project targets, since a `go` directive is a hard
+  minimum from Go 1.21 onwards.
+
+  The floor was chosen from evidence rather than taste. The newest standard-library API the CLI
+  uses is `strings.Cut` (Go 1.18); nothing depends on `slices`, `maps`, `errors.Join`,
+  range-over-int or the `min`/`max` builtins. **`go 1.23.0`** was set and then *verified against a
+  real toolchain* — `GOTOOLCHAIN=go1.23.0`, downloaded, with the full suite building and passing —
+  rather than assumed from an API survey. That is two releases below Go's own support window,
+  which is the margin lagging CI needs.
+
+  **The two modules deliberately diverge.** `cataloger/` declares `go 1.26.3`, because syft
+  v1.50.0 requires it; attempting 1.24 fails with `requires go >= 1.26.3`. That floor is inherited,
+  not chosen, and it is a further argument for the split in
+  [ADR-0008](0008-cataloger-as-a-separate-module.md): were the cataloger inside the CLI module, its
+  dependency would drag every consumer of the CLI onto a toolchain three releases newer, for a
+  capability the CLI does not use.
+
+  Consequence for CI: the cataloger job reads `cataloger/go.mod` rather than the root one. Reading
+  the root would select 1.23 and fail to build syft.
 
 ## References
 

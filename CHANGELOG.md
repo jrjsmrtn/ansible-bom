@@ -19,9 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SPDX headers on all 25 Go source files
 - CodeQL analysis workflow
 - README install instructions, quick start, badges and contribution pointers
+- ADR-0009 recording that the backlog stays in-repo and the tracker stays thin — a decision, not
+  an omission
 
 ### Changed
 
+- Go floor lowered from 1.26.5 to **1.23.0** for the CLI, verified against a real downloaded
+  1.23.0 toolchain rather than inferred from an API survey. `cataloger/` stays at 1.26.3 because
+  syft requires it — an inherited floor, and a further argument for the module split. Closes the
+  risk ADR-0003 recorded for this gate
 - ADR-0008 corrected: the cataloger module is not independently consumable because the repository
   is **private**, not because no tag contained `content/`. Tagging v0.2.0 and dropping the
   `replace` was tried and fails — the module proxy and checksum database cannot read a private
