@@ -28,8 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1.23.0 toolchain rather than inferred from an API survey. `cataloger/` stays at 1.26.3 because
   syft requires it — an inherited floor, and a further argument for the module split. Closes the
   risk ADR-0003 recorded for this gate
-- CI and release builds now use a current Go toolchain (`go-version: stable`) rather than the
-  floor declared in `go.mod`. Building at the minimum meant building against the least-patched
+- CI and release builds now use a pinned Go line (`1.26`) rather than the floor declared in
+  `go.mod`. Pinned rather than `stable` so a new Go major release cannot change what is built
+  without a commit; patch releases within the line are still picked up, which is what carries
+  stdlib security fixes. Building at the minimum meant building against the least-patched
   standard library — `govulncheck` caught two `os` advisories in go1.23.0 — and released binaries
   embed the stdlib they are built with. A separate `floor` job builds and tests at the declared
   minimum, so the compatibility claim stays verified

@@ -29,9 +29,14 @@ jobs:
       # minimum a consumer needs; building with exactly that minimum means building against the
       # oldest, least patched standard library. govulncheck caught this: go1.23.0 carries
       # GO-2026-4602 and GO-2025-3750 in `os`, which this code calls constantly.
+      #
+      # The LINE is pinned rather than tracking `stable`, so a new Go major release cannot change
+      # what CI builds without a commit here. Patch releases within 1.26 are still picked up,
+      # which is what carries stdlib security fixes. Bump this deliberately when 1.27 lands —
+      # Dependabot does not manage it, so it is a calendar item, roughly twice a year.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version: "1.26"
           check-latest: true
 
       # Mirrors the local pre-commit gate (.lefthook.yml) so "works locally, fails in CI"
@@ -130,7 +135,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version: "1.26"
           check-latest: true
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -161,7 +166,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: stable
+          go-version: "1.26"
           check-latest: true
 
       # Hooks are local and bypassable with --no-verify; this is the enforcing copy.

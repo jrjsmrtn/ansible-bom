@@ -139,9 +139,17 @@ this author's projects.
 
   Released binaries embed the standard library they are built with, and each binary's own SBOM
   records `pkg:golang/stdlib@<version>`, so shipping the floor would have published a known-
-  vulnerable stdlib *and* recorded the fact in the accompanying BOM. Builds now use
-  `go-version: stable`; a separate `floor` job builds and tests at exactly the declared minimum,
+  vulnerable stdlib *and* recorded the fact in the accompanying BOM. Builds now pin the Go line
+  (`go-version: "1.26"`); a separate `floor` job builds and tests at exactly the declared minimum,
   proving the compatibility claim without treating an old toolchain as shippable.
+
+  The line is pinned rather than tracking `stable` so that a new Go major release cannot change
+  what CI and the release build produce without a commit here. Patch releases within the line are
+  still taken, which is what carries stdlib security fixes. Nothing manages this automatically —
+  Dependabot does not update `go-version` — so bumping it when 1.27 lands is a deliberate,
+  roughly twice-yearly act. Two workflows (`codeql`, `scorecard`) initially kept reading the floor
+  and had to be corrected: the scheduled `govulncheck` would otherwise have reported the floor
+  toolchain's advisories every week, about a version nothing is built with.
 
 ## References
 
