@@ -128,5 +128,7 @@ being wrong in the proposed direction is lower than the cost of being deliberate
 - [purl-spec PR #854](https://github.com/package-url/purl-spec/pull/854) — the proposal being tracked
 - `internal/purl/testdata/purl-spec-854/` — vendored snapshot of the proposal and its provenance
 - `internal/purl/conformance_test.go` — the divergence, pinned
+- [Findings for purl-spec#854](../reference/upstream-purl-findings.md) — what implementing the
+  proposal surfaced, drafted for contribution and **not yet reported**
 - [SPARK analysis](../inception/spark-analysis.md) — risk R4 and the release-gating section
 - [ECMA-427](https://www.ecma-international.org/publications-and-standards/standards/ecma-427/)

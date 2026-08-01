@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `docs/reference/upstream-purl-findings.md` — the three things implementing purl-spec#854 against
+  real content surfaced, drafted for contribution: roles are outside the proposed type's scope and
+  will collide with collections; `MANIFEST.json`'s `repository` field is author-supplied and the
+  proposal's note calls it authoritative; and `repository_url`/`vcs_url`/`download_url` are not
+  recoverable by a tool that inspects an installed tree rather than performing the install
+
+  **Nothing has been reported upstream** — no comment from this project exists on the PR. The
+  findings existed only as working notes, which is how the ADR-0004 paraphrase went wrong before:
+  a claim nobody could check. Each one now names the fixture or parse site that grounds it
+
 ### Fixed
 
 - **The syft cataloger was building identifiers with its own copy of the constructor**, and the
