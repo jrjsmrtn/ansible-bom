@@ -27,38 +27,46 @@ immediately. We also cannot pretend it is settled.
 
 ## Decision
 
-### Emit a provisional form, and pin how it diverges
+### Conform to the proposal, and track it until the type is registered
 
-0.x emits `pkg:ansible/<namespace>.<name>@<version>` — the Ansible-native fully-qualified name in a
-single segment.
+0.x emits `pkg:ansible/<namespace>/<name>@<version>` — the shape PR #854 defines, with `namespace`
+as a **separate component**, both components lowercased.
 
-**This does not conform to PR #854, and an earlier revision of this ADR wrongly claimed it did.**
-The proposal makes `namespace` a *required, separate* purl component, so what this tool emits
-carries no namespace at all: `pkg:ansible/cisco.aci@2.13.0` against the proposal's
-`pkg:ansible/cisco/aci@2.13.0`. That is non-conformance with a machine-readable constraint, not a
-variant spelling, and the eventual migration is therefore a real change rather than the no-op this
-ADR previously predicted.
+The alternative — keeping Ansible's native `namespace.name` in a single segment — was rejected. If
+the aim is to conform, there is no value in a third syntax that matches neither the proposal nor
+anything else. An identifier that is deliberately different is not more honest than one that is
+provisionally aligned; it is just harder to migrate and impossible to join.
 
-The error survived for months because the proposal was **paraphrased into prose here and never
-captured**. Nothing could contradict the paraphrase. The correction is not just the sentence:
+**An earlier revision of this ADR claimed conformance while emitting the dotted form.** That was
+wrong, and it survived for months because the proposal was paraphrased into prose here and never
+captured — nothing could contradict the paraphrase. The correction is structural, not editorial:
 
-- The proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its provenance,
-  upstream commit and digest recorded alongside it, clearly marked as an unmerged proposal.
-- `internal/purl/conformance_test.go` asserts this tool's output against that file and **pins the
-  divergence**, so it fails if either side moves — the tool made to conform, or the proposal
-  amended. Both failure directions were exercised before the tests were committed.
+- The proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its upstream
+  commit, digest and PR state recorded, clearly marked as an unmerged proposal.
+- `internal/purl/conformance_test.go` round-trips **every example the proposal publishes** through
+  this tool's construction and requires the same identifier back. The expectations come from
+  upstream, so refreshing the snapshot re-tests conformance instead of re-asserting a stale reading
+  of it.
 
-The divergence stands for now rather than being fixed immediately: `?kind=role` is also outside the
-proposal, roles are outside its scope entirely, and changing identity is worth doing **once**, when
-the shape is settled, not twice. Construction remains in one function so that it is one edit.
+Conformance is to a **moving target** and must be re-established, never assumed: the type is not
+registered, and #854 is open with changes requested on `vcs_url` syntax and the `packaging`
+qualifier. The tests fail if either side moves, which is what makes "track the proposal" a
+commitment rather than an intention.
 
-- **Construction lives in exactly one function.** The eventual change must be one edit.
-- **Avoid `vcs_url`.** It is the actively contested qualifier; git-sourced content is instead
-  reported through the drift channel, where mutable sources are a finding rather than an
-  identifier detail.
-- **Label the output.** BOMs emitted by 0.x carry an explicit marker that identifiers are
-  provisional and subject to change. A consumer must not discover this by having a join silently
-  break.
+**Two departures, both deliberate and both asserted as such:**
+
+- **`?kind=role` is kept.** The proposal is scoped to collections and has no equivalent. Galaxy
+  namespaces roles and collections alike, so `author/name@version` is ambiguous between them and
+  identifiers would silently collide without a discriminator. Carrying a qualifier the proposal has
+  not considered is better than emitting colliding identity. **A separate proposal covering roles
+  is intended**; until then this is an extension, and the code and tests say so.
+- **No namespace is emitted when none was observed.** The proposal marks it required because it
+  models Galaxy-installed collections, which always have one; a locally-authored role under
+  `roles/` genuinely has none. Such a purl is knowingly incomplete. Inventing a namespace to
+  satisfy a schema would fabricate identity, which this tool must never do.
+
+Also unchanged: construction stays in **one function**, `vcs_url` is still avoided as the contested
+qualifier, and 0.x output still carries the marker saying identifiers are provisional.
 
 ### Gate 1.0 on the type being approved *and* implemented
 
@@ -87,8 +95,10 @@ being wrong in the proposed direction is lower than the cost of being deliberate
 - 0.x ships now; the value that needs no standard is not held hostage to one.
 - One-edit migration when the type settles.
 - Honest versioning — 1.0 means the identity contract is stable, not that a backlog is empty.
-- The divergence from the proposal is now pinned by a test rather than asserted in prose, so
-  neither side can move unnoticed.
+- Conformance is pinned by tests driven by the proposal's own examples, rather than asserted in
+  prose, so neither side can move unnoticed.
+- Migration when the type is registered is now most likely a no-op for collections, which is what
+  choosing the proposed form was always supposed to buy.
 
 **Negative**:
 
@@ -102,11 +112,14 @@ being wrong in the proposed direction is lower than the cost of being deliberate
 
 **Risks**:
 
-- *Divergence.* **Already realised**, in exactly the namespace/name handling this risk named: BOMs
-  emitted by 0.x are wrong against the proposal, not merely provisional, and will need re-emitting.
-  The output marker and the 0.x version are what make that acceptable. The mitigation this entry
-  originally gave — "track the PR" — had no failure mode and did not work; it is replaced by the
-  vendored snapshot and conformance test described above.
+- *Divergence.* Realised once already, in exactly the namespace/name handling this risk named, and
+  undetected for months. **Identifiers emitted before v0.3.0 are wrong** — `pkg:ansible/cisco.aci`
+  rather than `pkg:ansible/cisco/aci` — and BOMs from those releases need re-emitting rather than
+  merely re-labelling. The mitigation this entry originally gave, "track the PR", had no failure
+  mode and did not work; it is replaced by the vendored snapshot and conformance tests.
+- *The proposal is amended before it merges.* Likely, given two open review threads. Re-emission is
+  cheap and the tests make the change visible; this is the accepted cost of tracking rather than
+  waiting.
 - *Adopter confusion.* Someone may pin a 0.x identifier into their own tooling. The output marker
   is the mitigation; the README states it too.
 

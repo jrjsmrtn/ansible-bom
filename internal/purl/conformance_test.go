@@ -15,12 +15,18 @@ import (
 
 // This file pins what this tool emits against the vendored purl-spec#854 proposal.
 //
-// It is a DIVERGENCE RECORD, not a conformance pass. The tool does not currently conform, and
-// these tests assert the divergence exactly, so that they fail when it changes — whether because
-// the proposal moved or because the tool was made to conform. Either is a decision that belongs in
-// ADR-0004, and neither should be discoverable only by someone re-reading the PR by hand. That is
-// precisely how the divergence went unnoticed: ADR-0004 paraphrased the proposal in prose, the
-// paraphrase was wrong, and nothing could contradict it.
+// The tool CONFORMS to the proposal's identifier shape, and these tests are driven by the
+// proposal's own examples rather than by expectations written out here — so they follow upstream
+// rather than restating it. The target is a moving one: the type is not registered, the PR is open
+// with changes requested, and conformance therefore has to be re-established on every refresh of
+// the snapshot rather than assumed. That is the point of the tests.
+//
+// Two departures are asserted as deliberate rather than accidental: the ?kind=role qualifier,
+// which the proposal has no equivalent for because it is scoped to collections, and the omission
+// of a namespace when none was observed on disk.
+//
+// This file exists because ADR-0004 once paraphrased the proposal in prose, the paraphrase was
+// wrong for months, and nothing could contradict it.
 //
 // See testdata/purl-spec-854/PROVENANCE.md for what the snapshot is and how to refresh it.
 
@@ -122,7 +128,7 @@ func TestVendoredProposalUnchanged(t *testing.T) {
 		t.Errorf("proposal declares type %q, this package emits %q", d.Type, Type)
 	}
 	if got := d.NamespaceDefinition.Requirement; got != "required" {
-		t.Errorf("namespace requirement is %q, was \"required\" when the divergence was recorded —\n"+
+		t.Errorf("namespace requirement is %q, was \"required\" when conformance was established —\n"+
 			"the proposal has moved; re-read the PR and revisit ADR-0004", got)
 	}
 	if got := d.NameDefinition.Requirement; got != "required" {
@@ -157,53 +163,109 @@ func TestProposalExamplesCarryANamespace(t *testing.T) {
 	}
 }
 
-// TestDivergence_NamespaceIsFoldedIntoName records the substantive divergence.
+// TestConformance_ProposalExamplesRoundTrip is the core conformance assertion.
 //
-// The proposal makes namespace a REQUIRED, separate purl component: pkg:ansible/cisco/aci@2.13.0.
-// This tool folds it into the name: pkg:ansible/cisco.aci@2.13.0, emitting no namespace at all.
-// That is not a variant spelling — it is non-conformance with a machine-readable constraint.
+// For every example the proposal publishes, it decomposes the purl, rebuilds a component from the
+// parts, and requires this tool to emit the same identifier back. Nothing about the expected shape
+// is written here — the expectations come from upstream, so refreshing the snapshot re-tests
+// conformance instead of re-asserting a stale reading of it.
 //
-// ADR-0004 claimed the opposite ("following PR #854's proposal", "most likely to be a no-op").
-// When this test fails, the tool has been changed to conform, or the proposal has moved. Update
-// ADR-0004 rather than the expectation.
-func TestDivergence_NamespaceIsFoldedIntoName(t *testing.T) {
+// Qualifiers are compared separately: the proposal's examples carry provenance qualifiers this
+// tool deliberately does not emit (see TestConformance_ContestedQualifiersAreNotEmitted), so only
+// type, namespace, name and version participate in the round trip.
+func TestConformance_ProposalExamplesRoundTrip(t *testing.T) {
 	d := loadDefinition(t)
 
+	for _, ex := range d.Examples {
+		want := parsePurl(t, ex)
+
+		// Every published example names a collection; roles are outside the proposal's scope.
+		c := content.Component{
+			Kind:      content.KindCollection,
+			Namespace: want.Namespace,
+			Name:      want.Name,
+			Version:   want.Version,
+		}
+		got := parsePurl(t, For(c))
+
+		if got.Type != want.Type || got.Namespace != want.Namespace ||
+			got.Name != want.Name || got.Version != want.Version {
+			t.Errorf("round trip of %q\n  got  type=%q namespace=%q name=%q version=%q\n"+
+				"  want type=%q namespace=%q name=%q version=%q\n"+
+				"This tool no longer agrees with the proposal. Either it regressed, or the "+
+				"snapshot was refreshed and the proposal moved — decide which in ADR-0004.",
+				ex, got.Type, got.Namespace, got.Name, got.Version,
+				want.Type, want.Namespace, want.Name, want.Version)
+		}
+	}
+}
+
+// TestConformance_NamespaceIsASeparateComponent states the specific property that was wrong for
+// months and is the reason this file exists: namespace is its own purl component, never folded
+// into the name.
+func TestConformance_NamespaceIsASeparateComponent(t *testing.T) {
 	c := content.Component{
 		Kind:      content.KindCollection,
 		Namespace: "cisco",
 		Name:      "aci",
 		Version:   "2.13.0",
 	}
-	got := For(c)
-	p := parsePurl(t, got)
-
-	if d.NamespaceDefinition.Requirement != "required" {
-		t.Fatal("guarded by TestVendoredProposalUnchanged")
+	const want = "pkg:ansible/cisco/aci@2.13.0" // the proposal's own first example
+	if got := For(c); got != want {
+		t.Errorf("For(cisco.aci) = %q, want %q", got, want)
 	}
 
-	if p.Namespace != "" {
-		t.Errorf("this tool now emits a namespace (%q) for %q.\n"+
-			"The divergence recorded in ADR-0004 no longer holds — the tool may now conform.\n"+
-			"Update ADR-0004 and turn this into a conformance assertion.", p.Namespace, got)
-	}
-	if p.Name != "cisco.aci" {
-		t.Errorf("name segment is %q, want the dotted form %q that records the divergence", p.Name, "cisco.aci")
-	}
-
-	const conformant = "pkg:ansible/cisco/aci@2.13.0" // the proposal's own first example
-	if got == conformant {
-		t.Errorf("emitted %q, which now matches the proposal — see above", got)
+	p := parsePurl(t, For(c))
+	if strings.Contains(p.Name, ".") {
+		t.Errorf("name segment %q contains a dot — the namespace has been folded back into the "+
+			"name, which is the exact non-conformance ADR-0004 records having corrected", p.Name)
 	}
 }
 
-// TestDivergence_RoleQualifierIsNotInTheProposal records the second divergence.
+// TestDeparture_NamespaceOmittedWhenNotObserved records a deliberate departure.
+//
+// The proposal marks namespace required because it models Galaxy-installed collections, which
+// always have one. Content found on disk without install metadata — a locally-authored role under
+// roles/ — genuinely has none. Emitting a namespace-less purl is knowingly incomplete; inventing
+// one would fabricate identity, which this tool must never do.
+func TestDeparture_NamespaceOmittedWhenNotObserved(t *testing.T) {
+	d := loadDefinition(t)
+	if d.NamespaceDefinition.Requirement != "required" {
+		t.Skip("the proposal no longer requires a namespace; this departure is moot")
+	}
+
+	local := content.Component{Kind: content.KindRole, Name: "site_common"}
+	got := For(local)
+	if want := "pkg:ansible/site_common?kind=role"; got != want {
+		t.Errorf("For(local role) = %q, want %q", got, want)
+	}
+	if p := parsePurl(t, got); p.Namespace != "" {
+		t.Errorf("a namespace (%q) was emitted for content that has none on disk — identity must "+
+			"never be invented to satisfy a schema", p.Namespace)
+	}
+}
+
+// TestConformance_NormalisationLowercases checks the proposal's case rule, which it states in
+// prose ("Must be lowercased") alongside case_sensitive: false.
+func TestConformance_NormalisationLowercases(t *testing.T) {
+	d := loadDefinition(t)
+	if d.NamespaceDefinition.CaseSensitive {
+		t.Fatal("the proposal now marks namespace case-sensitive; revisit normalisation")
+	}
+
+	c := content.Component{Kind: content.KindRole, Namespace: "MyOrg", Name: "MyRole", Version: "1.0.0"}
+	if got, want := For(c), "pkg:ansible/myorg/myrole@1.0.0?kind=role"; got != want {
+		t.Errorf("For(MyOrg.MyRole) = %q, want %q", got, want)
+	}
+}
+
+// TestDeparture_RoleQualifierIsNotInTheProposal records the second deliberate departure.
 //
 // The proposal is titled "Ansible Collection" and defines exactly four qualifiers. Legacy roles
 // are not addressed by it at all, so the kind=role discriminator this tool needs — Galaxy
 // namespaces roles and collections alike, so "author.name@version" is otherwise ambiguous — is an
 // extension, not an implementation of the proposal.
-func TestDivergence_RoleQualifierIsNotInTheProposal(t *testing.T) {
+func TestDeparture_RoleQualifierIsNotInTheProposal(t *testing.T) {
 	d := loadDefinition(t)
 
 	defined := make(map[string]bool, len(d.QualifiersDefinition))
@@ -236,9 +298,9 @@ func TestDivergence_RoleQualifierIsNotInTheProposal(t *testing.T) {
 	}
 }
 
-// TestDivergence_ContestedQualifiersAreNotEmitted pins the deliberate omission in ADR-0004:
+// TestConformance_ContestedQualifiersAreNotEmitted pins the deliberate omission in ADR-0004:
 // vcs_url is the actively contested qualifier, so nothing this tool emits depends on it.
-func TestDivergence_ContestedQualifiersAreNotEmitted(t *testing.T) {
+func TestConformance_ContestedQualifiersAreNotEmitted(t *testing.T) {
 	components := []content.Component{
 		{Kind: content.KindCollection, Namespace: "community", Name: "general", Version: "11.4.0"},
 		{Kind: content.KindRole, Namespace: "jborean93", Name: "win_openssh", Version: "0.3.2"},

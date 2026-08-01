@@ -51,7 +51,7 @@ Download a binary for your platform from the [latest release](https://github.com
 verify it, and put it on your `PATH`:
 
 ```bash
-VERSION=v0.2.2          # adjust
+VERSION=v0.3.0          # adjust
 PLATFORM=linux_amd64    # or darwin_arm64, darwin_amd64, linux_arm64, windows_amd64.exe
 BASE=https://github.com/jrjsmrtn/ansible-bom/releases/download/$VERSION
 

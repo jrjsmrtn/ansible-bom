@@ -11,33 +11,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-01
+
+**Component identifiers have changed shape.** BOMs and lockfiles from earlier releases carry
+identifiers that do not match what this release emits, and should be regenerated. This is why 0.x
+labels its identifiers provisional in the output.
+
+### Changed
+
+- **Identifiers now conform to [purl-spec#854](https://github.com/package-url/purl-spec/pull/854).**
+  `namespace` is a separate purl component rather than folded into the name, and both components
+  are lowercased as the proposal requires:
+
+  | | |
+  |---|---|
+  | before | `pkg:ansible/community.general@11.4.0` |
+  | after | `pkg:ansible/community/general@11.4.0` |
+
+  The previous form matched neither the proposal nor any other convention. If the aim is to
+  conform, a third syntax has no value — it is simply harder to migrate and impossible to join.
+  ADR-0004 previously *claimed* conformance while emitting the dotted form; see below
+
 ### Added
 
-- The purl-spec#854 proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its
-  upstream commit, digest and PR state recorded, clearly marked as an unmerged proposal rather than
-  a specification
-- `internal/purl/conformance_test.go` asserts emitted identifiers against that snapshot and **pins
-  the divergence** described below, so it fails if either side moves — the tool made to conform, or
-  the proposal amended. Both failure directions were exercised before the tests were committed
+- The proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its upstream
+  commit, sha256 and PR state recorded, marked clearly as an unmerged proposal and not a
+  specification
+- `internal/purl/conformance_test.go` round-trips **every example the proposal publishes** through
+  this tool's construction and requires the same identifier back. Expectations come from upstream,
+  so refreshing the snapshot re-tests conformance rather than re-asserting a stale reading of it.
+  The failure direction was exercised before committing: reverting to the dotted form fails six
+  round trips, and editing the snapshot's constraints fails the guard tests
 
 ### Fixed
 
-- **ADR-0004 claimed 0.x identifiers follow purl-spec#854. They do not.** The proposal makes
-  `namespace` a required, *separate* purl component (`pkg:ansible/cisco/aci@2.13.0`); this tool
-  folds it into the name (`pkg:ansible/cisco.aci@2.13.0`) and so emits no namespace at all. That is
-  non-conformance with a machine-readable constraint, not a variant spelling, and it means the
-  eventual migration is a real change rather than the no-op ADR-0004 predicted. Identifiers are
-  unchanged for now — `?kind=role` is also outside the proposal, roles are outside its scope
-  entirely, and identity is worth changing once, when the shape settles. The error survived because
-  the proposal was paraphrased into prose and never captured; the vendored snapshot and conformance
-  test above are the actual fix
+- **ADR-0004 claimed 0.x identifiers followed purl-spec#854 when they did not.** The claim survived
+  for months because the proposal was paraphrased into prose and never captured, so nothing could
+  contradict it. Correcting the sentence alone would have left the same gap — the vendored snapshot
+  and conformance tests are the actual fix
 - `purl.go` stated the role-qualifier gap had been "reported upstream". It has not — no comment
   from this project exists on purl-spec#854. Corrected to say so
 
-- README: the note on `cosign`'s identity flags claimed that omitting them makes `cosign` accept
-  any valid Sigstore signature. It does not — cosign 3.x refuses to verify in keyless mode without
-  an identity. Replaced with the actual failure messages, and the provenance asset named now that
-  a real release has produced one (`multiple.intoto.jsonl`, one document covering every binary)
+### Notes
+
+Two departures from the proposal remain, both deliberate and both asserted by tests rather than
+left to prose:
+
+- **`?kind=role` is kept.** The proposal is scoped to collections and has no equivalent. Galaxy
+  namespaces roles and collections alike, so `author/name@version` is ambiguous between them and
+  identifiers would silently collide. A separate proposal covering roles is intended
+- **No namespace is emitted when none was observed.** The proposal marks it required because it
+  models Galaxy-installed content; a locally-authored role under `roles/` genuinely has none.
+  Inventing one to satisfy a schema would fabricate identity
 
 ## [0.2.2] - 2026-07-31
 
