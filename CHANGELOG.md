@@ -11,17 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [0.3.1] - 2026-08-02
 
-- **The README claimed `syft` covers "61 ecosystems".** syft publishes no such number — its own
-  README says *"dozens of packaging ecosystems"* and gives no count. The figure circulates in
-  secondary sources; it was not upstream's claim and should not have been stated as fact. Replaced
-  with upstream's own wording, quoted
-
-  The surrounding premise was checked rather than assumed at the same time, and it holds: searching
-  `anchore/syft` for `ansible` returns nothing, and the six hits in `cdxgen/cdxgen` are evaluation
-  results, a gtfobins index, PyPI aliases and a test lockfile — no cataloger anywhere. **No
-  mainstream SBOM generator catalogs Ansible content**
+Documentation and internal consistency. **No change to identifiers, output, or the CLI** — a BOM
+produced by 0.3.0 and one produced by 0.3.1 are identical.
 
 ### Added
 
@@ -36,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a claim nobody could check. Each one now names the fixture or parse site that grounds it
 
 ### Fixed
+
+- **The README claimed `syft` covers "61 ecosystems".** syft publishes no such number — its own
+  README says *"dozens of packaging ecosystems"* and gives no count. The figure circulates in
+  secondary sources; it was not upstream's claim and should not have been stated as fact. Replaced
+  with upstream's own wording, quoted
+
+  The surrounding premise was checked rather than assumed at the same time, and it holds: searching
+  `anchore/syft` for `ansible` returns nothing, and the six hits in `cdxgen/cdxgen` are evaluation
+  results, a gtfobins index, PyPI aliases and a test lockfile — no cataloger anywhere. **No
+  mainstream SBOM generator catalogs Ansible content**
 
 - **The syft cataloger was building identifiers with its own copy of the constructor**, and the
   copy had diverged. It kept the pre-0.3.0 dotted namespace form after the CLI conformed to
@@ -301,7 +304,10 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.1.0...v0.1.1
