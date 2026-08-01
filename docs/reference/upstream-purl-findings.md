@@ -109,6 +109,11 @@ any consumer that cannot obtain the value.
 
 ## Before posting
 
+> **Currency check, 2026-08-02.** purl-spec#854 is still **open and unmerged**, last updated
+> 2026-06-09 — so the vendored snapshot and the quotations below are current, and the divergence
+> the conformance test pins is unchanged. The `ansible` type is still absent from the registry:
+> 42 type definitions exist upstream and none of them is `ansible`.
+
 1. Refresh the vendored snapshot (see
    [`PROVENANCE.md`](../../internal/purl/testdata/purl-spec-854/PROVENANCE.md)) and re-read the
    proposal — it has changes requested, and this file is written against a snapshot taken

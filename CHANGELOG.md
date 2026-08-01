@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README claimed `syft` covers "61 ecosystems".** syft publishes no such number — its own
+  README says *"dozens of packaging ecosystems"* and gives no count. The figure circulates in
+  secondary sources; it was not upstream's claim and should not have been stated as fact. Replaced
+  with upstream's own wording, quoted
+
+  The surrounding premise was checked rather than assumed at the same time, and it holds: searching
+  `anchore/syft` for `ansible` returns nothing, and the six hits in `cdxgen/cdxgen` are evaluation
+  results, a gtfobins index, PyPI aliases and a test lockfile — no cataloger anywhere. **No
+  mainstream SBOM generator catalogs Ansible content**
+
 ### Added
 
 - `docs/reference/upstream-purl-findings.md` — the three things implementing purl-spec#854 against

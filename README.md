@@ -32,7 +32,8 @@ The consequences are concrete:
 
 Ansible Galaxy has no lockfile. The feature was requested against trackers now archived, built
 once in `mazer`, and abandoned with it in 2020. Meanwhile no mainstream SBOM generator catalogs
-Ansible content at all — `syft` covers 61 ecosystems; Ansible is not among them.
+Ansible content at all — `syft` covers *"dozens of packaging ecosystems"* in its own words, and
+Ansible is not among them.
 
 ## What it does
 
