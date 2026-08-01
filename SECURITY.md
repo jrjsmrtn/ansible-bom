@@ -17,8 +17,8 @@ useful than a service-level commitment that would not be met.
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | ✅ |
-| < 0.2   | ❌ |
+| 0.3.x   | ✅ |
+| < 0.3   | ❌ |
 
 Pre-1.0, only the latest minor line receives fixes. See
 [ADR-0004](docs/adr/0004-provisional-purl-identifiers.md) for why 1.0 is gated on an external

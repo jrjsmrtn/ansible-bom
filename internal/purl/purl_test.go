@@ -19,14 +19,14 @@ func TestFor(t *testing.T) {
 		{
 			name: "collection",
 			comp: content.Component{Kind: content.KindCollection, Namespace: "community", Name: "general", Version: "11.4.0"},
-			want: "pkg:ansible/community.general@11.4.0",
+			want: "pkg:ansible/community/general@11.4.0",
 		},
 		{
 			// purl-spec#854 addresses collections and says nothing about roles, yet Galaxy
 			// namespaces both — so a discriminator is needed or the two would collide.
 			name: "role carries a kind qualifier",
 			comp: content.Component{Kind: content.KindRole, Namespace: "jborean93", Name: "win_openssh", Version: "0.3.2"},
-			want: "pkg:ansible/jborean93.win_openssh@0.3.2?kind=role",
+			want: "pkg:ansible/jborean93/win_openssh@0.3.2?kind=role",
 		},
 		{
 			name: "unversioned content omits the version rather than inventing one",
@@ -34,9 +34,19 @@ func TestFor(t *testing.T) {
 			want: "pkg:ansible/site_common?kind=role",
 		},
 		{
-			name: "collection with no namespace",
+			// The proposal marks namespace required because it models Galaxy-installed content.
+			// A namespace is emitted only when one was observed — inventing one to satisfy the
+			// schema would fabricate identity.
+			name: "no namespace observed, so none is invented",
 			comp: content.Component{Kind: content.KindCollection, Name: "orphan", Version: "1.0.0"},
 			want: "pkg:ansible/orphan@1.0.0",
+		},
+		{
+			// The proposal requires both components lowercased (case_sensitive: false). Galaxy
+			// already enforces this for collections; locally-authored role directories do not.
+			name: "namespace and name are lowercased per the proposal",
+			comp: content.Component{Kind: content.KindRole, Namespace: "MyOrg", Name: "MyRole", Version: "1.0.0"},
+			want: "pkg:ansible/myorg/myrole@1.0.0?kind=role",
 		},
 	}
 
