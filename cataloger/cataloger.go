@@ -33,6 +33,7 @@ import (
 	"github.com/anchore/syft/syft/pkg/cataloger/generic"
 
 	"github.com/jrjsmrtn/ansible-bom/content"
+	purlpkg "github.com/jrjsmrtn/ansible-bom/internal/purl"
 )
 
 const (
@@ -44,7 +45,7 @@ const (
 	// Type is the proposed purl type. There is no registered `ansible` type yet —
 	// package-url/purl-spec#854 proposes one and is still open — so identifiers emitted here
 	// are provisional, which is the first question put to syft maintainers.
-	Type = "ansible"
+	Type = purlpkg.Type
 )
 
 // NewCollectionCataloger returns a cataloger for installed Ansible collections.
@@ -201,24 +202,15 @@ func licenses(c content.Component, loc file.Location) []pkg.License {
 	return out
 }
 
-// purl builds the provisional identifier. Kept to one function here for the same reason the CLI
-// does: when the `ansible` type is registered, the change is one edit (ADR-0004).
+// purl delegates to the CLI's construction site rather than re-implementing it.
 //
-// The `kind=role` qualifier is an extension to purl-spec#854, which addresses collections and says
-// nothing about roles even though Galaxy namespaces both. Without a discriminator a role and a
-// collection sharing a name would collide. Raised upstream.
-func purl(c content.Component) string {
-	var b strings.Builder
-	b.WriteString("pkg:")
-	b.WriteString(Type)
-	b.WriteString("/")
-	b.WriteString(c.FQN())
-	if c.Version != "" {
-		b.WriteString("@")
-		b.WriteString(c.Version)
-	}
-	if c.Kind == content.KindRole {
-		b.WriteString("?kind=role")
-	}
-	return b.String()
-}
+// It was re-implemented here once, and the copy silently diverged: it kept the pre-v0.3.0 dotted
+// namespace form after the CLI conformed to purl-spec#854, and it never percent-encoded. Two
+// construction sites cannot both be "the one place identifiers are built", which is what ADR-0004
+// and CLAUDE.md claim — so there is now genuinely one.
+//
+// This reaches into the parent module's internal/ package, which is permitted because this module
+// shares its path prefix. An upstream syft contribution would not share it, and would need the
+// construction promoted to a public package — the same argument that moved content out of
+// internal/ (ADR-0008). Recorded rather than pre-emptively done.
+func purl(c content.Component) string { return purlpkg.For(c) }

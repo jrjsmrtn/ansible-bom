@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The syft cataloger was building identifiers with its own copy of the constructor**, and the
+  copy had diverged. It kept the pre-0.3.0 dotted namespace form after the CLI conformed to
+  purl-spec#854, and it never percent-encoded at all. ADR-0004 and `CLAUDE.md` both state that purl
+  construction lives in exactly one function so the 1.0 identity change is one edit — with two
+  construction sites that was simply untrue, and the divergence surfaced only because the
+  conformance change forced the two to be compared. The cataloger now delegates to the CLI's
+  constructor, so the claim holds
+
+  This works because the cataloger module shares the parent's import path prefix and may therefore
+  reach into its `internal/`. An upstream syft contribution would not share it and would need the
+  constructor promoted to a public package — the same argument that moved `content` out of
+  `internal/` (ADR-0008). Recorded rather than pre-emptively done
+
 ## [0.3.0] - 2026-08-01
 
 **Component identifiers have changed shape.** BOMs and lockfiles from earlier releases carry

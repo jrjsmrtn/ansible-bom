@@ -112,7 +112,7 @@ func TestCollectionCataloger(t *testing.T) {
 	if p.Version != "1.0.0" {
 		t.Errorf("Version = %q, want 1.0.0", p.Version)
 	}
-	if p.PURL != "pkg:ansible/example.widget@1.0.0" {
+	if p.PURL != "pkg:ansible/example/widget@1.0.0" {
 		t.Errorf("PURL = %q", p.PURL)
 	}
 
@@ -155,7 +155,7 @@ func TestRoleCataloger(t *testing.T) {
 	if galaxy.Version != "2.0.0" {
 		t.Errorf("author.tool version = %q, want 2.0.0", galaxy.Version)
 	}
-	if galaxy.PURL != "pkg:ansible/author.tool@2.0.0?kind=role" {
+	if galaxy.PURL != "pkg:ansible/author/tool@2.0.0?kind=role" {
 		t.Errorf("author.tool PURL = %q — roles need the kind qualifier to avoid colliding "+
 			"with a collection of the same name", galaxy.PURL)
 	}
