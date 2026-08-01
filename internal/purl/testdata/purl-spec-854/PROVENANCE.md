@@ -39,5 +39,9 @@ gh api "repos/anweshadas/purl-spec/contents/types/ansible-definition.json?ref=$S
 Then update the table above, re-read the diff, and decide — in ADR-0004 — whether the divergence
 still stands or the tool should now conform. Do not silently update the expectations to match.
 
+Refreshing is also the moment to re-read
+[Findings for purl-spec#854](../../../../docs/reference/upstream-purl-findings.md), which quotes
+this snapshot's wording and is written against it.
+
 If the PR is merged, this directory is replaced by the real definition from `package-url/purl-spec`
 and the test becomes a genuine conformance test rather than a divergence record.

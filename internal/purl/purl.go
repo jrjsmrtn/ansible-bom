@@ -38,7 +38,8 @@ const Status = "provisional: the `ansible` purl type is proposed but not yet reg
 //
 // Kept as an extension rather than dropped: the ambiguity is real and silently emitting colliding
 // identifiers would be worse than carrying a qualifier the proposal has not yet considered. A
-// separate proposal covering roles is intended. NOT yet reported upstream.
+// separate proposal covering roles is intended. NOT yet reported upstream — the case is drafted
+// in docs/reference/upstream-purl-findings.md.
 const RoleQualifier = "kind=role"
 
 // For builds the identifier for a component.
