@@ -61,6 +61,17 @@ those decoders. This is required regardless of where the cataloger lives: `inter
 imported by anything outside this repository, so an upstream contribution could not reuse a single
 line of it.
 
+**Extended 2026-08-02: `internal/purl` moves to `purl` on the same argument.** The cataloger could
+import it from `internal/` because it shares the module path prefix — Go's rule is lexical, and
+`github.com/jrjsmrtn/ansible-bom/cataloger` sits under the parent of `internal/`. A package at
+`github.com/anchore/syft/...` does not, so the constraint that applied to the parsers applied to
+identifier construction too, and was simply not yet load-bearing. It becomes load-bearing the moment
+an upstream contribution is attempted, which is the wrong time to discover it.
+
+The cataloger's own import lags one release by necessity: it requires the parent at a *published*
+version and resolves through the module proxy, so it can only name `purl/` once a tag contains it.
+That is the same chicken-and-egg as the version pin itself, and is recorded at the call site.
+
 ### 3. The cataloger is a separate Go module
 
 `cataloger/` carries its own `go.mod` and its own syft dependency. It is not built into the CLI,

@@ -33,7 +33,7 @@ Only refresh deliberately, and expect the conformance test to fail — that fail
 ```bash
 SHA=$(gh api repos/package-url/purl-spec/pulls/854 --jq .head.sha)
 gh api "repos/anweshadas/purl-spec/contents/types/ansible-definition.json?ref=$SHA" --jq .content \
-  | base64 -d > internal/purl/testdata/purl-spec-854/ansible-definition.json
+  | base64 -d > purl/testdata/purl-spec-854/ansible-definition.json
 ```
 
 Then update the table above, re-read the diff, and decide — in ADR-0004 — whether the divergence

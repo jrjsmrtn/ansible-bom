@@ -209,8 +209,13 @@ func licenses(c content.Component, loc file.Location) []pkg.License {
 // construction sites cannot both be "the one place identifiers are built", which is what ADR-0004
 // and CLAUDE.md claim — so there is now genuinely one.
 //
-// This reaches into the parent module's internal/ package, which is permitted because this module
-// shares its path prefix. An upstream syft contribution would not share it, and would need the
-// construction promoted to a public package — the same argument that moved content out of
-// internal/ (ADR-0008). Recorded rather than pre-emptively done.
+// The construction site has been promoted out of internal/ to the parent module's public purl
+// package, so an upstream syft contribution can import it — the same argument that moved content
+// out of internal/ (ADR-0008).
+//
+// The import below still names the old internal/ path, deliberately: this module requires the
+// parent at v0.3.1, and the promotion is not in that release. It resolves through the module proxy,
+// not the working tree, so pointing at purl/ before a release contains it would break the build for
+// everyone including CI. Switch the import in the same change that bumps the requirement, once a
+// tag carries the promoted package.
 func purl(c content.Component) string { return purlpkg.For(c) }
