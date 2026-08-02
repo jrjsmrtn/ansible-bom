@@ -41,9 +41,9 @@ provisionally aligned; it is just harder to migrate and impossible to join.
 wrong, and it survived for months because the proposal was paraphrased into prose here and never
 captured — nothing could contradict the paraphrase. The correction is structural, not editorial:
 
-- The proposal is **vendored** at `internal/purl/testdata/purl-spec-854/`, with its upstream
+- The proposal is **vendored** at `purl/testdata/purl-spec-854/`, with its upstream
   commit, digest and PR state recorded, clearly marked as an unmerged proposal.
-- `internal/purl/conformance_test.go` round-trips **every example the proposal publishes** through
+- `purl/conformance_test.go` round-trips **every example the proposal publishes** through
   this tool's construction and requires the same identifier back. The expectations come from
   upstream, so refreshing the snapshot re-tests conformance instead of re-asserting a stale reading
   of it.
@@ -126,8 +126,8 @@ being wrong in the proposed direction is lower than the cost of being deliberate
 ## References
 
 - [purl-spec PR #854](https://github.com/package-url/purl-spec/pull/854) — the proposal being tracked
-- `internal/purl/testdata/purl-spec-854/` — vendored snapshot of the proposal and its provenance
-- `internal/purl/conformance_test.go` — the divergence, pinned
+- `purl/testdata/purl-spec-854/` — vendored snapshot of the proposal and its provenance
+- `purl/conformance_test.go` — the divergence, pinned
 - [Findings for purl-spec#854](../reference/upstream-purl-findings.md) — what implementing the
   proposal surfaced, drafted for contribution and **not yet reported**
 - [SPARK analysis](../inception/spark-analysis.md) — risk R4 and the release-gating section

@@ -18,7 +18,7 @@ import (
 
 	"github.com/jrjsmrtn/ansible-bom/content"
 	"github.com/jrjsmrtn/ansible-bom/internal/lockfile"
-	"github.com/jrjsmrtn/ansible-bom/internal/purl"
+	"github.com/jrjsmrtn/ansible-bom/purl"
 )
 
 // SpecVersion is the CycloneDX specification version emitted.

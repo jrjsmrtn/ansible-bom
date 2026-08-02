@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`internal/purl` is now the public `purl` package.** An upstream syft cataloger cannot import
+  `internal/` — the constraint that put the parsers in `content/` (ADR-0008) applies to identifier
+  construction too, and was simply not yet load-bearing. Promoting it makes the construction site
+  importable by a contribution living in `github.com/anchore/syft`, which is the whole point of
+  having one. `purl.For`, `purl.Type`, `purl.Status`, `purl.RoleQualifier` and `purl.ProposalURL`
+  are now public API: breaking them breaks consumers, and the v1.0 identity change is a breaking
+  change by design (ADR-0004)
+- No change to output. The function is the same function, moved — identifiers a BOM carries are
+  byte-identical
+
+### Note
+
+- `cataloger/` still imports the old `internal/purl` path. It requires the parent at a published
+  version and resolves through the module proxy, so it can only name `purl/` once a release
+  contains it. The import switches in the same change that bumps the requirement
+
+### Changed
+
 - `cataloger/` now requires the parent module at **v0.3.1**, the release that contains the
   delegation fix. It had been pinned to v0.3.0, which works — v0.3.0 carries the conformant
   `internal/purl` the delegation calls — but pinning to the release that actually fixed the

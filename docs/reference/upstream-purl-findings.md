@@ -9,7 +9,7 @@ authors have seen it.
 
 Each finding names the fixture or code that grounds it, so a reviewer can check the claim rather
 than take it. The proposal text quoted below is the vendored snapshot at
-[`internal/purl/testdata/purl-spec-854/`](../../internal/purl/testdata/purl-spec-854/); refresh it
+[`purl/testdata/purl-spec-854/`](../../purl/testdata/purl-spec-854/); refresh it
 before posting, because the wording may have moved.
 
 Related: [ADR-0004](../adr/0004-provisional-purl-identifiers.md) records which of these we act on
@@ -34,7 +34,7 @@ Legacy roles are not a historical curiosity: `ansible-galaxy role install` is cu
 trees are the norm on long-lived controllers.
 
 **What we do about it.** Emit `?kind=role`, as a declared extension to the proposal rather than a
-reading of it (`internal/purl/purl.go`, `RoleQualifier`).
+reading of it (`purl/purl.go`, `RoleQualifier`).
 
 **What we would ask.** Whether roles belong in this type with a discriminating qualifier, or in a
 separate type. Either resolves the collision; leaving it unstated does not. The `?kind=role`
@@ -115,7 +115,7 @@ any consumer that cannot obtain the value.
 > 42 type definitions exist upstream and none of them is `ansible`.
 
 1. Refresh the vendored snapshot (see
-   [`PROVENANCE.md`](../../internal/purl/testdata/purl-spec-854/PROVENANCE.md)) and re-read the
+   [`PROVENANCE.md`](../../purl/testdata/purl-spec-854/PROVENANCE.md)) and re-read the
    proposal — it has changes requested, and this file is written against a snapshot taken
    2026-07-31.
 2. Re-check whether the review threads already cover any of this.

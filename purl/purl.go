@@ -3,6 +3,12 @@
 
 // Package purl constructs Package URL identifiers for Ansible content.
 //
+// It is public rather than internal so that an upstream syft cataloger can import it. A package
+// under internal/ is importable only from within this module's subtree, which excludes anything
+// living in github.com/anchore/syft — the same constraint that put the parsers in content/
+// (ADR-0008). Being public makes it API: breaking it breaks consumers, and the v1.0 identity
+// change is a breaking change by design (ADR-0004).
+//
 // This is the ONLY place identifiers are built. There is no registered `ansible` purl type yet —
 // purl-spec#854 proposes one and is still open — so every identifier this tool emits is
 // provisional, and v1.0 is gated on that type being approved and implemented upstream. Keeping

@@ -119,6 +119,8 @@ lefthook run pre-commit
   opaque; do not parse it.
 - Role versions are inconsistently prefixed (`v0.3.2` alongside `3.5.0`). Normalise defensively.
 - purl construction lives in **exactly one function** so the 1.0 identity change is one edit.
+  That function is in the **public** `purl` package, not `internal/`, for the same reason as
+  `content` below: an upstream syft cataloger cannot import `internal/`.
 - **The CLI must never import syft.** It would take the dependency graph from 3 modules to 445
   for a capability the CLI does not need. The cataloger is a separate module under `cataloger/`,
   and CI asserts the root module stays syft-free (ADR-0008).
