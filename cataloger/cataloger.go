@@ -33,7 +33,7 @@ import (
 	"github.com/anchore/syft/syft/pkg/cataloger/generic"
 
 	"github.com/jrjsmrtn/ansible-bom/content"
-	purlpkg "github.com/jrjsmrtn/ansible-bom/internal/purl"
+	purlpkg "github.com/jrjsmrtn/ansible-bom/purl"
 )
 
 const (
@@ -209,13 +209,8 @@ func licenses(c content.Component, loc file.Location) []pkg.License {
 // construction sites cannot both be "the one place identifiers are built", which is what ADR-0004
 // and CLAUDE.md claim — so there is now genuinely one.
 //
-// The construction site has been promoted out of internal/ to the parent module's public purl
-// package, so an upstream syft contribution can import it — the same argument that moved content
-// out of internal/ (ADR-0008).
-//
-// The import below still names the old internal/ path, deliberately: this module requires the
-// parent at v0.3.1, and the promotion is not in that release. It resolves through the module proxy,
-// not the working tree, so pointing at purl/ before a release contains it would break the build for
-// everyone including CI. Switch the import in the same change that bumps the requirement, once a
-// tag carries the promoted package.
+// It imports the parent module's public purl package, which v0.4.0 promoted out of internal/ so
+// that an upstream syft contribution can reach it — the same argument that moved content out of
+// internal/ (ADR-0008). Nothing here depends on this module sharing the parent's path prefix any
+// more, which is the property that makes this file portable to github.com/anchore/syft.
 func purl(c content.Component) string { return purlpkg.For(c) }

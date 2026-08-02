@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `cataloger/` now requires the parent module at **v0.4.0** and imports the promoted public `purl`
+  package instead of reaching into `internal/`. Both had to move together: the module resolves the
+  parent through the proxy, so the import could only be switched once a published release carried
+  `purl/`. Verified with `GOWORK=off` against the published v0.4.0 rather than the working tree
+- **The cataloger no longer depends on sharing the parent's module path prefix.** That was the only
+  thing making its `internal/` import legal, and it is the property an upstream contribution in
+  `github.com/anchore/syft` would not have. This file is now portable there
+
 ## [0.4.0] - 2026-08-02
 
 **No change to output.** A BOM produced by 0.3.1 and one produced by 0.4.0 carry byte-identical
