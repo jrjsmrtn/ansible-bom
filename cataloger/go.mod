@@ -15,7 +15,7 @@ go 1.26.3
 
 require (
 	github.com/anchore/syft v1.50.0
-	github.com/jrjsmrtn/ansible-bom v0.3.1
+	github.com/jrjsmrtn/ansible-bom v0.4.0
 )
 
 require (
