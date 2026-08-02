@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `cataloger/` now requires the parent module at **v0.3.1**, the release that contains the
+  delegation fix. It had been pinned to v0.3.0, which works — v0.3.0 carries the conformant
+  `internal/purl` the delegation calls — but pinning to the release that actually fixed the
+  cataloger is the honest edge. Verified with `GOWORK=off` against the published module rather
+  than the working tree, per ADR-0008
+
 ## [0.3.1] - 2026-08-02
 
 Documentation and internal consistency. **No change to identifiers, output, or the CLI** — a BOM
