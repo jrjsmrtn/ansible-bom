@@ -11,31 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-02
+
+**No change to output.** A BOM produced by 0.3.1 and one produced by 0.4.0 carry byte-identical
+identifiers; verified by diffing both, normalising only `serialNumber` and `timestamp`. The minor
+bump reflects an import path moving, not behaviour changing.
+
 ### Changed
 
 - **`internal/purl` is now the public `purl` package.** An upstream syft cataloger cannot import
   `internal/` — the constraint that put the parsers in `content/` (ADR-0008) applies to identifier
-  construction too, and was simply not yet load-bearing. Promoting it makes the construction site
-  importable by a contribution living in `github.com/anchore/syft`, which is the whole point of
-  having one. `purl.For`, `purl.Type`, `purl.Status`, `purl.RoleQualifier` and `purl.ProposalURL`
-  are now public API: breaking them breaks consumers, and the v1.0 identity change is a breaking
-  change by design (ADR-0004)
-- No change to output. The function is the same function, moved — identifiers a BOM carries are
-  byte-identical
-
-### Note
-
-- `cataloger/` still imports the old `internal/purl` path. It requires the parent at a published
-  version and resolves through the module proxy, so it can only name `purl/` once a release
-  contains it. The import switches in the same change that bumps the requirement
-
-### Changed
-
+  construction too, and was simply not yet load-bearing, because the only consumer is this
+  repository's own cataloger, which could reach in because Go's rule is lexical. A package at
+  `github.com/anchore/syft` cannot. `purl.For`, `purl.Type`, `purl.Status`, `purl.RoleQualifier`
+  and `purl.ProposalURL` are now public API: breaking them breaks consumers, and the v1.0 identity
+  change is a breaking change by design (ADR-0004)
 - `cataloger/` now requires the parent module at **v0.3.1**, the release that contains the
   delegation fix. It had been pinned to v0.3.0, which works — v0.3.0 carries the conformant
   `internal/purl` the delegation calls — but pinning to the release that actually fixed the
   cataloger is the honest edge. Verified with `GOWORK=off` against the published module rather
   than the working tree, per ADR-0008
+- `cataloger/` still imports the **old** `internal/purl` path, deliberately. It resolves the parent
+  through the module proxy rather than the working tree, so it can only name `purl/` once a release
+  contains it — this one. The import and the requirement move together in the next change
 
 ## [0.3.1] - 2026-08-02
 
@@ -330,7 +328,8 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.1...v0.2.2
