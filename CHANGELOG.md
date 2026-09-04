@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`scan` now declares its SBOM type in `metadata.lifecycles`.** The document was silent about
+  where its data came from, which left a consumer to infer the type from the tool that produced
+  it. It is a **Deployed** SBOM in [CISA's six-type taxonomy](https://www.cisa.gov/sites/default/files/2023-04/sbom-types-document-508c.pdf):
+  content already installed on the controller, read from each artefact's own manifest. The custom
+  `name`/`description` form is used rather than a predefined `phase` because CycloneDX's nearest
+  phase, `operations`, is the value for **both** Deployed and Runtime — it cannot express the
+  distinction between what is installed and what actually loaded during a play, which is precisely
+  the distinction this tool exists to make. Output validated against the CycloneDX 1.6 schema
+
 ### Changed
 
 - `cataloger/` now requires the parent module at **v0.4.0** and imports the promoted public `purl`
