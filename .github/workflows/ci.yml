@@ -179,9 +179,22 @@ jobs:
 
   dependency-review:
     name: Dependency review
-    # Also unavailable on a private repository without GitHub Advanced Security — verified by
-    # running it: "Dependency review is not supported on this repository." Like Scorecard, it
-    # activates by itself at the public-release gate.
+    # The guard below keeps this off private repositories, where the action is unavailable
+    # without GitHub Advanced Security — verified by running it there.
+    #
+    # It does NOT follow that going public is sufficient, and this comment used to say it was.
+    # The repository is public (verified 2026-09-04) so the guard passes and the job runs — and
+    # fails in about 4s with "Dependency review is not supported on this repository. Please
+    # ensure that Dependency graph is enabled", pointing at /settings/security_analysis. Every
+    # pull_request run has failed that way: 2026-08-06, 2026-08-13, 2026-09-03, 2026-09-04. Push
+    # runs stay green only because the guard keeps the job off them.
+    #
+    # Scorecard is the contrast, not the precedent: it did activate by itself on going public and
+    # has passed weekly since 2026-08-03. This one additionally needs the dependency graph turned
+    # on by hand in repository settings — a switch, not a consequence. The REST endpoint
+    # repos/{owner}/{repo}/dependency-graph/compare 404s, which is the same fact from the API
+    # side. Until someone flips it, a red "Dependency review" is a settings gap and never a fault
+    # in the diff under review.
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
