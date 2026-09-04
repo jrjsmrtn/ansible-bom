@@ -182,19 +182,22 @@ jobs:
     # The guard below keeps this off private repositories, where the action is unavailable
     # without GitHub Advanced Security — verified by running it there.
     #
-    # It does NOT follow that going public is sufficient, and this comment used to say it was.
-    # The repository is public (verified 2026-09-04) so the guard passes and the job runs — and
-    # fails in about 4s with "Dependency review is not supported on this repository. Please
-    # ensure that Dependency graph is enabled", pointing at /settings/security_analysis. Every
-    # pull_request run has failed that way: 2026-08-06, 2026-08-13, 2026-09-03, 2026-09-04. Push
-    # runs stay green only because the guard keeps the job off them.
+    # It does NOT follow that going public is sufficient, and this comment used to say it would
+    # be ("like Scorecard, it activates by itself"). Scorecard did — it has passed weekly since
+    # 2026-08-03. This one did not: the repository went public, the guard passed, the job ran and
+    # failed in ~4s with "Dependency review is not supported on this repository. Please ensure
+    # that Dependency graph is enabled". Every pull_request run failed that way — 2026-08-06,
+    # 2026-08-13, 2026-09-03, 2026-09-04 — while push runs stayed green, because the guard keeps
+    # the job off them. That asymmetry is why the false comment survived: nothing red ever
+    # appeared on a branch push.
     #
-    # Scorecard is the contrast, not the precedent: it did activate by itself on going public and
-    # has passed weekly since 2026-08-03. This one additionally needs the dependency graph turned
-    # on by hand in repository settings — a switch, not a consequence. The REST endpoint
-    # repos/{owner}/{repo}/dependency-graph/compare 404s, which is the same fact from the API
-    # side. Until someone flips it, a red "Dependency review" is a settings gap and never a fault
-    # in the diff under review.
+    # The dependency graph is a repository setting, not a consequence of visibility. It was
+    # enabled 2026-09-04 via PUT /repos/{owner}/{repo}/vulnerability-alerts — the REST API has no
+    # lever for the dependency graph alone, so enabling Dependabot alerts is the documented way
+    # in, and it turns on alerting as well. The job passed on re-run in 5s.
+    #
+    # So a red "Dependency review" from here on means that setting was turned back off, not that
+    # the diff under review introduced anything.
     if: ${{ github.event_name == 'pull_request' && !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
