@@ -152,6 +152,15 @@ with a sha256 for every file. Roles ship neither — a Galaxy-installed role's o
 version string in `meta/.galaxy_install_info`. `ansible-bom` reports both, and is explicit about
 which tier a component is in rather than emitting entries that falsely look equivalent.
 
+**It is a Deployed SBOM, and it says so.** `scan` inventories content already installed on the
+controller, reading each artefact's own manifest — that is the *Deployed* type in
+[CISA's six-type taxonomy](https://www.cisa.gov/sites/default/files/2023-04/sbom-types-document-508c.pdf),
+not Source, Build or Runtime. The document declares it in `metadata.lifecycles` rather than leaving
+you to infer it from the tool. The custom form is used deliberately: CycloneDX's predefined
+`operations` phase is the value for *both* Deployed and Runtime, so it cannot express the one
+distinction that matters here — this is what is **installed**, never what actually **loaded** during
+a play.
+
 **Identifiers are provisional until v1.0.** There is no registered `ansible` purl type yet;
 [purl-spec#854](https://github.com/package-url/purl-spec/pull/854) proposes one and is still open.
 0.x emits the proposed form, clearly labelled. **v1.0 waits on that type being approved *and*
