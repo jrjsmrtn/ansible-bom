@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-04
+
+**Additive output change.** A BOM produced by 0.4.1 carries one new object in
+`metadata.lifecycles`; every identifier, component, property and composition is unchanged from
+0.4.0. Verified by diffing both over the same content tree, normalising only `serialNumber`,
+`metadata.timestamp` and the recorded tool version: the `lifecycles` array is the whole diff.
+Consumers that ignore unknown metadata fields see no difference.
+
+### Added
+
+- **`scan` now declares its SBOM type in `metadata.lifecycles`.** The document was silent about
+  where its data came from, which left a consumer to infer the type from the tool that produced
+  it. It is a **Deployed** SBOM in [CISA's six-type taxonomy](https://www.cisa.gov/sites/default/files/2023-04/sbom-types-document-508c.pdf):
+  content already installed on the controller, read from each artefact's own manifest. The custom
+  `name`/`description` form is used rather than a predefined `phase` because CycloneDX's nearest
+  phase, `operations`, is the value for **both** Deployed and Runtime — it cannot express the
+  distinction between what is installed and what actually loaded during a play, which is precisely
+  the distinction this tool exists to make. Output validated against the CycloneDX 1.6 schema
+
 ### Changed
 
 - `cataloger/` now requires the parent module at **v0.4.0** and imports the promoted public `purl`
@@ -338,7 +357,8 @@ First release. All four commands work; identifiers are provisional until v1.0.
 - Confirmed from `ansible-core` 2.20.0 source that `ansible-galaxy` has no extension point,
   upgrading a negative-evidence finding to a verified one
 
-[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/jrjsmrtn/ansible-bom/compare/v0.2.2...v0.3.0

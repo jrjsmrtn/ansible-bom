@@ -41,10 +41,43 @@ type BOM struct {
 }
 
 type Metadata struct {
-	Timestamp  string     `json:"timestamp"`
-	Tools      Tools      `json:"tools"`
-	Properties []Property `json:"properties,omitempty"`
+	Timestamp  string      `json:"timestamp"`
+	Lifecycles []Lifecycle `json:"lifecycles,omitempty"`
+	Tools      Tools       `json:"tools"`
+	Properties []Property  `json:"properties,omitempty"`
 }
+
+// Lifecycle declares where the data in this BOM came from. A document that declares nothing
+// leaves the consumer to infer the type from the tool that produced it, which requires knowing
+// the tool — so this is stated rather than implied.
+//
+// CycloneDX allows either a predefined `phase` or a custom `name`, and the 1.6 schema sets
+// `additionalProperties: false` on both forms: an entry carrying both is invalid. Hence the
+// omitempty on every field.
+type Lifecycle struct {
+	Phase       string `json:"phase,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// The CISA type this tool produces, and why it is stated in the custom form rather than as a
+// predefined phase.
+//
+// `scan` walks content already installed on the controller and reads each artefact's own
+// MANIFEST.json or meta/main.yml. That is Deployed — what is installed on a system. It is not
+// Source (requirements.yml is read by `drift`, never by `scan`), not Build (nothing is built or
+// resolved), and above all not Runtime: no playbook execution is observed, so the document
+// reports the installed set and never the executed one.
+//
+// CycloneDX's nearest predefined phase, `operations`, is the value for BOTH Deployed and
+// Runtime — it cannot express the one distinction that matters here, which is exactly the
+// distinction the idempotency argument rests on. So the custom form carries it.
+const (
+	LifecycleName        = "Deployed"
+	LifecycleDescription = "Inventoried from Ansible content installed on the controller filesystem " +
+		"(CISA SBOM type). Not Runtime: no playbook execution was observed, so this is what is " +
+		"installed and not what loaded."
+)
 
 type Tools struct {
 	Components []Component `json:"components"`
@@ -114,7 +147,8 @@ func New(inv content.Inventory, opts Options) (BOM, error) {
 		SerialNumber: serial,
 		Version:      1,
 		Metadata: Metadata{
-			Timestamp: now().UTC().Format(time.RFC3339),
+			Timestamp:  now().UTC().Format(time.RFC3339),
+			Lifecycles: []Lifecycle{{Name: LifecycleName, Description: LifecycleDescription}},
 			Tools: Tools{Components: []Component{{
 				Type: "application", Name: opts.ToolName, Version: opts.ToolVersion,
 			}}},

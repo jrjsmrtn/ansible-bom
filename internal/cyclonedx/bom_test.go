@@ -243,3 +243,80 @@ func TestEmptyInventoryProducesAValidComponentsArray(t *testing.T) {
 		t.Errorf("components serialised as %T, want an array", raw["components"])
 	}
 }
+
+// The BOM must say which CISA SBOM type it is. Without `lifecycles` a consumer has to infer the
+// type from the tool that produced it, and "Deployed" versus "Runtime" is the distinction that
+// decides whether an uninvoked collection counts.
+func TestDeclaresItsLifecycle(t *testing.T) {
+	b := build(t, sample())
+	if len(b.Metadata.Lifecycles) != 1 {
+		t.Fatalf("Lifecycles = %d, want 1", len(b.Metadata.Lifecycles))
+	}
+	lc := b.Metadata.Lifecycles[0]
+	if lc.Name != "Deployed" {
+		t.Errorf("Name = %q, want Deployed", lc.Name)
+	}
+	if !strings.Contains(lc.Description, "Not Runtime") {
+		t.Errorf("Description does not rule out Runtime: %q", lc.Description)
+	}
+}
+
+// lifecycleFault reports why a lifecycle entry violates the CycloneDX 1.6 schema, which sets
+// `additionalProperties: false` on both the predefined and the custom form: an entry carries
+// either `phase` or `name`, never both and never neither.
+func lifecycleFault(entry map[string]any) string {
+	_, hasPhase := entry["phase"]
+	_, hasName := entry["name"]
+	switch {
+	case hasPhase && hasName:
+		return "carries both phase and name"
+	case !hasPhase && !hasName:
+		return "carries neither phase nor name"
+	}
+	if _, ok := entry["description"]; ok && hasPhase {
+		return "predefined phase carries a description"
+	}
+	return ""
+}
+
+// Proves the check above can fail — a checker that has only ever passed is unproven.
+func TestLifecycleFaultRejectsInvalidEntries(t *testing.T) {
+	bad := []map[string]any{
+		{"phase": "operations", "name": "Deployed"},
+		{"description": "no discriminator"},
+		{"phase": "operations", "description": "phases take no description"},
+	}
+	for _, entry := range bad {
+		if lifecycleFault(entry) == "" {
+			t.Errorf("accepted an invalid entry: %v", entry)
+		}
+	}
+	if fault := lifecycleFault(map[string]any{"name": "Deployed", "description": "ok"}); fault != "" {
+		t.Errorf("rejected a valid custom entry: %s", fault)
+	}
+}
+
+// The struct must not marshal an empty `phase` alongside the custom name; the schema forbids the
+// two together, so a missing omitempty would emit an invalid document.
+func TestLifecycleMarshalsOnlyOneForm(t *testing.T) {
+	out, err := Marshal(build(t, sample()))
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var doc struct {
+		Metadata struct {
+			Lifecycles []map[string]any `json:"lifecycles"`
+		} `json:"metadata"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(doc.Metadata.Lifecycles) == 0 {
+		t.Fatal("no lifecycles in the marshalled document")
+	}
+	for _, entry := range doc.Metadata.Lifecycles {
+		if fault := lifecycleFault(entry); fault != "" {
+			t.Errorf("lifecycle %v: %s", entry, fault)
+		}
+	}
+}

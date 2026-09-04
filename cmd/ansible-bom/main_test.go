@@ -289,7 +289,10 @@ func TestScanEmitsValidCycloneDX(t *testing.T) {
 		BOMFormat   string `json:"bomFormat"`
 		SpecVersion string `json:"specVersion"`
 		Serial      string `json:"serialNumber"`
-		Components  []struct {
+		Metadata    struct {
+			Lifecycles []struct{ Phase, Name, Description string } `json:"lifecycles"`
+		} `json:"metadata"`
+		Components []struct {
 			Name       string                         `json:"name"`
 			PURL       string                         `json:"purl"`
 			Properties []struct{ Name, Value string } `json:"properties"`
@@ -309,6 +312,11 @@ func TestScanEmitsValidCycloneDX(t *testing.T) {
 	}
 	if bom.Compositions[0].Aggregate != "complete" {
 		t.Errorf("aggregate = %q, want complete", bom.Compositions[0].Aggregate)
+	}
+
+	// The emitted document must name its CISA SBOM type, not leave it to be inferred.
+	if len(bom.Metadata.Lifecycles) != 1 || bom.Metadata.Lifecycles[0].Name != "Deployed" {
+		t.Errorf("lifecycles = %+v, want one entry named Deployed", bom.Metadata.Lifecycles)
 	}
 
 	// Every component must carry a coverage status, and the run must say so out loud.
