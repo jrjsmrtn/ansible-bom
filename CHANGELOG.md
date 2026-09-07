@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `metadata.timestamp` and the recorded tool version: the `lifecycles` array is the whole diff.
 Consumers that ignore unknown metadata fields see no difference.
 
+**`main` carries two `Release v0.4.1` merge commits, and only the second is tagged.** `f710578`
+came first and is **untagged**; it was created before the CI action bumps landed on `develop`, and
+a `sync-remotes` hook pushed it to both remotes on creation, so it could not be amended or dropped
+without force-pushing a public branch. `62b176b` supersedes it, folds in those bumps, and is what
+`v0.4.1` points at. Nothing was released from `f710578` — the release workflow fires on the tag.
+Read the tag, not the subject line, when identifying what shipped.
+
 ### Added
 
 - **`scan` now declares its SBOM type in `metadata.lifecycles`.** The document was silent about
