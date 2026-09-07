@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A table test covering every shape `requirements.yml` admits** ([#16](https://github.com/jrjsmrtn/ansible-bom/issues/16)),
+  the executable counterpart to `docs/reference/requirements-formats.md`: the reference says what
+  the formats are, the table says what the parser does with each. It records **current** behaviour,
+  including nine shapes that diverge from ansible-core 2.20.0 — each row naming the issue that
+  fixes it ([#13](https://github.com/jrjsmrtn/ansible-bom/issues/13),
+  [#14](https://github.com/jrjsmrtn/ansible-bom/issues/14),
+  [#15](https://github.com/jrjsmrtn/ansible-bom/issues/15)), so a fix flips one expectation rather
+  than being written blind. Package coverage 83.1% → 95.4%; `Parse` was previously untested
+
 ### Fixed
 
 - **The emitted YAML now passes `yamllint` and `ansible-lint` at their defaults** ([#8](https://github.com/jrjsmrtn/ansible-bom/issues/8)),
