@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Role names are now derived exactly as `ansible-galaxy` derives them** ([#13](https://github.com/jrjsmrtn/ansible-bom/issues/13)).
+  `FQN()` approximated `RoleRequirement.repo_url_to_role_name` and diverged in four ways: strip
+  order, `.tar.gz`, trailing slash, and URL detection. It is now a faithful port — **quirks
+  included**, because `drift` compares against what ansible actually installed. So
+  `…/r.git,v1.2.3` derives `r.git` (the `.git` is not terminal when that check runs) and a
+  trailing slash derives an **empty** name. Verified by running ansible's own function over 22
+  inputs and comparing: 0 mismatches
+- **The `src,version[,name]` form on a bare-string role entry is now parsed** ([#13](https://github.com/jrjsmrtn/ansible-bom/issues/13)).
+  This is the one path where the comma really is ansible's separator — the mapping `src:` path
+  does not split, despite a comment in ansible itself claiming it does. More than two commas is
+  an error there; here the entry is recorded unsplit, so it matches nothing installed
+- ⚠ **Collections are deliberately unchanged.** Ansible derives *nothing* for a collection: when
+  `name` is not a valid FQCN it becomes `None` and identity comes from the fetched artefact's
+  manifest. Our derivation there is an invention with no upstream counterpart, and rethinking it
+  is [#14](https://github.com/jrjsmrtn/ansible-bom/issues/14)
+
 ### Added
 
 - **A table test covering every shape `requirements.yml` admits** ([#16](https://github.com/jrjsmrtn/ansible-bom/issues/16)),
