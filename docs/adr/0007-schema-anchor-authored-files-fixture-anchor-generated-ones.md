@@ -102,7 +102,14 @@ Schemas are therefore consulted at development time, not shipped as a runtime de
 
 ## References
 
-- [ansible/schemas](https://github.com/ansible/schemas) — the published JSON Schemas
+- [ansible-lint's bundled schemas](https://github.com/ansible/ansible-lint/tree/main/src/ansiblelint/schemas)
+  — where the published JSON Schemas live now. **Correction, 2026-09-07:** this ADR names
+  [`ansible/schemas`](https://github.com/ansible/schemas), which was **archived 2022-12-02**
+  ("Schemas are now managed inside ansible-lint project"); its requirements schema has not changed
+  since 2022-05-15. The decision is unaffected — the two are structurally identical today, diffing
+  to only `$id` and an added `description` — but the pointer is frozen, and a frozen schema is the
+  harder kind of stale to notice. Their versions are unrelated to `ansible-core`'s; see
+  [requirements.yml formats](../reference/requirements-formats.md)
 - `ansible/galaxy/collection/__init__.py` — `_build_manifest()`, `ManifestKeysType`,
   `FileMetaKeysType` (verified against `ansible-core` 2.20.0, 2026-07-31)
 - [ADR-0002](0002-adopt-development-best-practices.md) §1, §5 — fixture practice and trusted fields

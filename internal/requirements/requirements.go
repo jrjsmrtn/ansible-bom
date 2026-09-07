@@ -157,7 +157,11 @@ func (d Declaration) FQN() string {
 		return d.Name
 	}
 	s := strings.TrimSuffix(strings.TrimSpace(d.Name), "/")
-	// A git URL may carry ",<version>" — ansible's own separator.
+	// Strip anything after a ",". NOTE: this convention is COMMAND-LINE only —
+	// `ansible-galaxy role install ns.name,version` works, but a comma in a requirements
+	// file's `src` is URL-encoded and resolves to nonsense (verified, ansible-core 2.20.0).
+	// Deriving a clean name here therefore dresses a broken declaration up as a valid one.
+	// See issue #13 and docs/reference/requirements-formats.md.
 	if i := strings.Index(s, ","); i >= 0 {
 		s = s[:i]
 	}

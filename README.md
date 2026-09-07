@@ -201,6 +201,8 @@ This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md).
 - [SPARK analysis](docs/inception/spark-analysis.md) — the design document: problem, evidence,
   alternatives, risks
 - [Audience registry](docs/reference/audience-registry.md)
+- [requirements.yml formats](docs/reference/requirements-formats.md) — the shapes `ansible-galaxy`
+  accepts, and where the published schema and the running tool disagree
 - [Architecture Decision Records](docs/adr/)
 
 ## Licence
