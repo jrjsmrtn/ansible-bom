@@ -191,18 +191,35 @@ Three behaviours worth knowing, none of them in the schema:
 strip order, `.tar.gz`, trailing slash, and URL detection. Tracked in
 [#13](https://github.com/jrjsmrtn/ansible-bom/issues/13).
 
-## Bearing on #9
+## Recovering a declared source (implemented, #9)
 
-`lock --requirements` currently omits components it cannot express as a Galaxy `name`/`version`
-pair. The format itself *can* express more than that — `type: git` with a `source`, or a role
-`src` with `scm: git` — so the blocker is not the format but that the installed tree records no
-trustworthy source to put there.
+`lock --requirements` omits components it cannot express as a Galaxy `name`/`version` pair,
+because the installed tree records no trustworthy source. Pass `-r <requirements.yml>` and the
+source is recovered from the file the operator wrote, and emitted **verbatim**:
 
-A requirements file does record it, because a human wrote it. Reading the declared source back is
-what #9 proposes. Two things this reference makes concrete for that design:
+```console
+$ ansible-bom lock --requirements -r requirements.yml ./content
+collections:
+  - name: community.general
+    version: 11.4.0
+  - name: community.windows
+    version: main
+    type: git
+    source: https://github.com/example/community.windows.git
+```
 
-- the field to carry is **`source` + `type`** for collections and **`src` + `scm`** for roles;
-  they are not interchangeable, and a projection that writes one where the other belongs produces
-  a file that fails to install
-- a role's `version` defaults to `master`, so "the declaration had a version" is not the same as
-  "the declaration pinned something immutable"
+Three constraints follow from the sections above, and they are the reason this is not simply "copy
+the file across":
+
+- **The field differs by section.** Collections carry `source` + `type`; roles carry `src` +
+  `scm`. Writing one where the other belongs produces a file that fails to install.
+- **Only declarations this tool can match by name are usable.** A collection declared by URL has
+  no name until its artefact is fetched, so it cannot be tied to an installed component. It stays
+  omitted, with its declared source named in the omission list.
+- **A carried ref is usually not a pin.** Only a full 40-character commit SHA is treated as
+  immutable; a tag can be moved or deleted upstream. Anything else is listed under `CARRIED
+  THROUGH … NOT immutably pinned`, in the file and on stderr, because a reinstall follows the ref
+  rather than reproducing this tree.
+
+Nothing is emitted for a component with no matching declaration: `-r` recovers sources, it never
+invents them.

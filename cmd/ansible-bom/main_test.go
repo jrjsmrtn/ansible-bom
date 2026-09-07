@@ -434,3 +434,83 @@ func TestResolveVersionFallsBackSafely(t *testing.T) {
 		t.Errorf("resolveVersion() = %q, want a real version or the \"dev\" default", got)
 	}
 }
+
+// Issue #9. A component installed from git cannot be projected from the tree alone, but the
+// requirements.yml the operator wrote records where it came from.
+func TestLockRequirementsCarriesDeclaredSources(t *testing.T) {
+	dir := t.TempDir()
+	decl := filepath.Join(dir, "requirements.yml")
+	if err := os.WriteFile(decl, []byte(
+		"collections:\n  - name: example.widget\n    type: git\n"+
+			"    source: https://example.com/o/example.widget.git\n    version: main\n"), 0o644); err != nil {
+		t.Fatalf("writing declaration: %v", err)
+	}
+
+	// tree() gives example.widget a .info marker, which makes it Galaxy-origin and therefore
+	// always projectable. Remove the marker so it is the case this feature exists for: installed,
+	// versioned, and with no source the tree can vouch for.
+	root := tree(t)
+	if err := os.RemoveAll(filepath.Join(root, "ansible_collections", "example.widget-1.0.0.info")); err != nil {
+		t.Fatalf("removing the install marker: %v", err)
+	}
+
+	without, _, code := invoke(t, "lock", "--requirements", root)
+	if code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	with, errb, code := invoke(t, "lock", "--requirements", "-r", decl, root)
+	if code != 0 {
+		t.Fatalf("exit = %d; stderr: %s", code, errb)
+	}
+
+	// Parse rather than grep: the component's NAME appears either way, because the omission list
+	// in the header names what it left out. The question is whether it is a requirement entry.
+	names := func(doc string) map[string]bool {
+		var r struct {
+			Collections []struct{ Name string } `yaml:"collections"`
+		}
+		if err := yaml.Unmarshal([]byte(doc), &r); err != nil {
+			t.Fatalf("projection is not valid YAML: %v", err)
+		}
+		out := map[string]bool{}
+		for _, c := range r.Collections {
+			out[c.Name] = true
+		}
+		return out
+	}
+	if names(without)["example.widget"] {
+		t.Error("without -r the component must stay omitted")
+	}
+	if !names(with)["example.widget"] {
+		t.Error("with -r the declared source must be carried through")
+	}
+	if !strings.Contains(with, "https://example.com/o/example.widget.git") {
+		t.Error("the declared source is not emitted verbatim")
+	}
+	// In the file, and still not reproducible. Both have to be said, in both channels.
+	if !strings.Contains(with, "NOT immutably pinned") {
+		t.Error("the file does not warn that the carried ref can move")
+	}
+	if !strings.Contains(errb, "NOT immutably pinned") {
+		t.Error("stderr does not warn that the carried ref can move")
+	}
+
+	// A component with no matching declaration stays omitted — -r recovers sources, it does not
+	// invent them.
+	if !strings.Contains(with, "OMITTED") {
+		t.Error("an undeclared off-Galaxy component must still be omitted")
+	}
+}
+
+// -r without --requirements is a usage error rather than a silent no-op: it reads a file and
+// changes nothing, which looks like it worked.
+func TestLockRejectsSourceFlagWithoutProjection(t *testing.T) {
+	dir := t.TempDir()
+	decl := filepath.Join(dir, "requirements.yml")
+	if err := os.WriteFile(decl, []byte("collections:\n  - c.g\n"), 0o644); err != nil {
+		t.Fatalf("writing declaration: %v", err)
+	}
+	if _, _, code := invoke(t, "lock", "-r", decl, tree(t)); code == 0 {
+		t.Error("-r without --requirements was accepted")
+	}
+}

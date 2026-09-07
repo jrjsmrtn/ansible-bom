@@ -180,7 +180,7 @@ func flattenComments(doc string) string {
 
 func TestRequirementsProjection(t *testing.T) {
 	l := New(sampleInventory(), "t", nil)
-	out, omitted, err := Requirements(l)
+	out, omitted, err := Requirements(l, nil)
 	if err != nil {
 		t.Fatalf("Requirements: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestRequirementsProjection(t *testing.T) {
 // digest, so it passes the unpinnable filter, and origin unknown, so Galaxy cannot resolve it.
 func TestRequirementsOmitsComponentsGalaxyCannotResolve(t *testing.T) {
 	l := New(sampleInventory(), "t", nil)
-	out, omitted, err := Requirements(l)
+	out, omitted, err := Requirements(l, nil)
 	if err != nil {
 		t.Fatalf("Requirements: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestRequirementsFilterKeysOnOriginNotAssurance(t *testing.T) {
 			Name: "ns.thing", Version: "1.0.0", Origin: tc.origin,
 			Tier: "checksummed", Digest: "sha256:abc",
 		}}}
-		out, omitted, err := Requirements(l)
+		out, omitted, err := Requirements(l, nil)
 		if err != nil {
 			t.Fatalf("origin %s: Requirements: %v", tc.origin, err)
 		}
@@ -342,7 +342,7 @@ func TestEmittedYAMLIsLintClean(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	req, _, err := Requirements(l)
+	req, _, err := Requirements(l, nil)
 	if err != nil {
 		t.Fatalf("Requirements: %v", err)
 	}
@@ -384,5 +384,78 @@ func TestLintFaultsRejectsBadDocuments(t *testing.T) {
 	}
 	if f := lintFaults("# ok\n---\nversion: 1\n"); len(f) != 0 {
 		t.Errorf("rejected a clean document: %v", f)
+	}
+}
+
+// Issue #9. A component installed from git is omitted from the projection because the tree
+// records no trustworthy source — but the requirements.yml the operator wrote does. Carrying that
+// declaration through is the difference between an incomplete file and a complete one.
+func TestRequirementsCarriesDeclaredSources(t *testing.T) {
+	l := New(sampleInventory(), "t", nil)
+	declared := map[string]Declared{
+		"community.windows": {
+			Name: "community.windows", Version: "main",
+			Type: "git", Source: "https://github.com/example/community.windows.git",
+		},
+	}
+
+	out, om, err := Requirements(l, declared)
+	if err != nil {
+		t.Fatalf("Requirements: %v", err)
+	}
+
+	var r struct {
+		Collections []struct{ Name, Version, Type, Source string } `yaml:"collections"`
+	}
+	if err := yaml.Unmarshal(out, &r); err != nil {
+		t.Fatalf("projection is not valid YAML: %v", err)
+	}
+
+	var got *struct{ Name, Version, Type, Source string }
+	for i := range r.Collections {
+		if r.Collections[i].Name == "community.windows" {
+			got = &r.Collections[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("the declared component was not carried through: %+v", r.Collections)
+	}
+	// Verbatim: this tool did not derive any of it.
+	if got.Type != "git" || got.Source != "https://github.com/example/community.windows.git" || got.Version != "main" {
+		t.Errorf("carried entry = %+v, want the declaration verbatim", *got)
+	}
+
+	// It is in the file, and it is still not reproducible — both must be said.
+	if len(om.NotImmutable) != 1 || om.NotImmutable[0].Name != "community.windows" {
+		t.Errorf("NotImmutable = %+v, want community.windows", om.NotImmutable)
+	}
+	for _, want := range []string{"NOT immutably pinned", "community.windows"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the file does not say %q", want)
+		}
+	}
+	// Carried through, so no longer omitted.
+	for _, e := range om.OffGalaxy {
+		if e.Name == "community.windows" {
+			t.Error("a carried-through component is still listed as omitted")
+		}
+	}
+}
+
+// Only a full commit SHA is treated as a pin. A tag can be moved or deleted upstream, so calling
+// one immutable would promise reproducibility this tool cannot check.
+func TestDeclaredImmutability(t *testing.T) {
+	for version, want := range map[string]bool{
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4": true,
+		"E3B0C44298FC1C149AFBF4C8996FB92427AE41E4": true,
+		"v1.2.3": false,
+		"main":   false,
+		"":       false,
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e":  false, // 39 chars
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41eZ": false,
+	} {
+		if got := (Declared{Version: version}).Immutable(); got != want {
+			t.Errorf("Immutable(%q) = %v, want %v", version, got, want)
+		}
 	}
 }

@@ -66,6 +66,9 @@ Commands:
 Flags for 'lock':
   -o, --output <path>     write to a file instead of stdout
       --requirements      emit an installable requirements.yml projection instead
+  -r, --from <path>       requirements.yml to recover declared sources from, so
+                          git and local components reach the projection instead
+                          of being omitted (needs --requirements)
       --fail-on-problems  exit non-zero if any content could not be parsed
 
 Flags for 'drift':
@@ -179,6 +182,9 @@ func (a *app) runLock(args []string) error {
 	fs.StringVar(&output, "output", "", "write to a file instead of stdout")
 	fs.StringVar(&output, "o", "", "write to a file instead of stdout")
 	fs.BoolVar(&asRequirements, "requirements", false, "emit an installable requirements.yml projection")
+	var declaredPath string
+	fs.StringVar(&declaredPath, "from", "", "requirements.yml to recover declared sources from")
+	fs.StringVar(&declaredPath, "r", "", "requirements.yml to recover declared sources from")
 	fs.BoolVar(&failOnProblems, "fail-on-problems", false, "exit non-zero if any content could not be parsed")
 
 	if err := fs.Parse(args); err != nil {
@@ -196,10 +202,15 @@ func (a *app) runLock(args []string) error {
 
 	lock := lockfile.New(inv, "ansible-bom "+resolveVersion(), roots)
 
+	declared, err := declaredSources(declaredPath, asRequirements)
+	if err != nil {
+		return err
+	}
+
 	var out []byte
 	var omitted lockfile.Omitted
 	if asRequirements {
-		out, omitted, err = lockfile.Requirements(lock)
+		out, omitted, err = lockfile.Requirements(lock, declared)
 	} else {
 		out, err = lockfile.Marshal(lock)
 	}
@@ -221,6 +232,41 @@ func (a *app) runLock(args []string) error {
 		return fmt.Errorf("%d component(s) could not be parsed", len(inv.Problems))
 	}
 	return nil
+}
+
+// declaredSources recovers installable sources from a requirements.yml, keyed by the name the
+// content installs under.
+//
+// This is the only way a non-Galaxy component can reach the projection: the installed tree records
+// nothing trustworthy about where content came from, but the file the operator wrote does. The
+// source is copied verbatim rather than reconstructed (issue #9).
+//
+// Only declarations this tool can MATCH BY NAME are usable. A collection declared by URL has no
+// name until its artefact is fetched (issue #14), so it cannot be tied to an installed component
+// and is not carried through — it stays in the omission list, where its source is now named.
+func declaredSources(path string, asRequirements bool) (map[string]lockfile.Declared, error) {
+	if path == "" {
+		return nil, nil
+	}
+	if !asRequirements {
+		return nil, usagef("-r only applies with --requirements: it recovers sources for the projection")
+	}
+
+	f, err := requirements.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]lockfile.Declared{}
+	for _, d := range append(append([]requirements.Declaration{}, f.Collections...), f.Roles...) {
+		if !d.Identifiable() || d.Source == "" {
+			continue
+		}
+		out[d.FQN()] = lockfile.Declared{
+			Name: d.Name, Version: d.Version, SCM: d.SCM, Type: d.Type, Source: d.Source,
+		}
+	}
+	return out, nil
 }
 
 // report writes the human-readable summary to stderr, so it never contaminates piped output.
@@ -248,6 +294,15 @@ func report(w io.Writer, l lockfile.Lock, inv content.Inventory, omitted lockfil
 
 	// Off-Galaxy components are the failure this projection used to cause rather than report:
 	// emitted as bare Galaxy requirements, they abort the entire install (see issue #7).
+	if asRequirements && len(omitted.NotImmutable) > 0 {
+		fmt.Fprintf(w, "  %d carried through from your requirements.yml but NOT immutably pinned:\n",
+			len(omitted.NotImmutable))
+		for _, e := range omitted.NotImmutable {
+			fmt.Fprintf(w, "    %s\n", e.Name)
+		}
+		fmt.Fprintf(w, "    a reinstall follows the ref, not this tree\n")
+	}
+
 	if asRequirements && len(omitted.OffGalaxy) > 0 {
 		fmt.Fprintf(w, "  %d OMITTED from the projection (not installable from Galaxy by name):\n",
 			len(omitted.OffGalaxy))
