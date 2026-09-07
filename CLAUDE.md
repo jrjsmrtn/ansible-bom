@@ -130,8 +130,12 @@ lefthook run pre-commit
   tool is standalone.
 - **`MANIFEST.json` and `FILES.json` have no JSON Schema anywhere** — the parser is the contract,
   so fixtures are load-bearing and `format` is a hard version gate (ADR-0007). `requirements.yml`,
-  `meta/main.yml` and `galaxy.yml` *do* have schemas in `ansible/schemas`; use them as a design
-  reference, never as a runtime validator.
+  `meta/main.yml` and `galaxy.yml` *do* have published schemas; use them as a design
+  reference, never as a runtime validator. **They live in `ansible/ansible-lint`
+  (`src/ansiblelint/schemas/`), not in `ansible/schemas`** — that repo was archived 2022-12-02 and
+  its copies are frozen, though still structurally identical. Schema versions track ansible-lint,
+  not `ansible-core`: name what each claim was checked against. See
+  [requirements.yml formats](docs/reference/requirements-formats.md).
 - Role `meta/main.yml` has **two shapes** (v1/v2 per `ansible-meta.json`). Handle both.
 
 **AI leads**: parsers, table-driven tests, fixture capture, CycloneDX emission.

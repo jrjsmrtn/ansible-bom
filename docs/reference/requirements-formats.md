@@ -7,11 +7,25 @@ Written as input to the parser in [`internal/requirements`](../../internal/requi
 can be carried through into `lock --requirements` output.
 
 **Anchored to two sources, and they disagree.** The structure below is the
-[ansible/schemas requirements schema](https://raw.githubusercontent.com/ansible/schemas/main/f/ansible-requirements.json)
-(draft-07, fetched 2026-09-07). The divergences are what `ansible-galaxy` from **ansible-core
-2.20.0** actually accepted when run against a file of that shape. Where they disagree, the running
-tool wins and the divergence is recorded — this is the [ADR-0007](../adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md)
-position: schemas are a design reference, never a runtime validator.
+[requirements schema bundled with ansible-lint](https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/requirements.json)
+(draft-07, read from ansible-lint **26.8.0**, 2026-09-07). The divergences are what
+`ansible-galaxy` from **ansible-core 2.20.0** accepted when run against a file of that shape.
+Where they disagree, the running tool wins and the divergence is recorded — this is the
+[ADR-0007](../adr/0007-schema-anchor-authored-files-fixture-anchor-generated-ones.md) position:
+schemas are a design reference, never a runtime validator.
+
+⚠ **Cite the ansible-lint copy, not `ansible/schemas`.** That repository is **archived**
+(2022-12-02, "Schemas are now managed inside ansible-lint project") and its requirements schema
+has not changed since 2022-05-15. The two are structurally identical today — diffing them yields
+only `$id` and an added `description` — so the archived copy is not *wrong*, it is merely frozen,
+which is the harder kind of stale to notice.
+
+**The three versions here move independently.** `ansible/schemas` used CalVer and stopped;
+ansible-lint carries the live schema on its own release cycle; `ansible-core` is on its own again.
+Nothing pins a schema version to a core version, so "the schema says X" and "core 2.20 does Y" are
+observations about two unrelated artefacts and must each name what they were checked against.
+Note the pair is not even self-consistent locally: ansible-lint 26.8.0 bundles ansible-core
+**2.20.5**, while the `ansible-galaxy` probed above is **2.20.0**.
 
 ## Two top-level forms
 
