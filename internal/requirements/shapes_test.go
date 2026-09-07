@@ -40,6 +40,8 @@ type shapeCase struct {
 	want []want
 	// wantErr is true where ParseBytes must fail rather than return a partial answer.
 	wantErr bool
+	// wantUnread is content the file references that the parser deliberately did not read.
+	wantUnread int
 	// divergence names the issue where this row disagrees with ansible-core 2.20.0. Empty means
 	// the row is believed faithful.
 	divergence string
@@ -150,8 +152,7 @@ func shapeCases() []shapeCase {
 			name: "role/old-style role key",
 			doc:  "roles:\n  - role: legacy.alias\n",
 			// `role:` is an alias for `name` and is in ansible's VALID_SPEC_KEYS.
-			want:       nil,
-			divergence: "#15: dropped silently; ansible reads it as name=legacy.alias",
+			want: []want{{kind: KindRole, name: "legacy.alias", fqn: "legacy.alias"}},
 		},
 
 		{
@@ -202,13 +203,12 @@ func shapeCases() []shapeCase {
 			name:       "structure/legacy include",
 			doc:        "- include: more.yml\n",
 			want:       nil,
-			divergence: "#15: dropped silently; ansible reads and installs the included file",
+			wantUnread: 1,
 		},
 		{
-			name:       "structure/empty document",
-			doc:        "",
-			want:       nil,
-			divergence: "#15: ansible errors with \"No requirements found in file\"",
+			name:    "structure/empty document",
+			doc:     "",
+			wantErr: true,
 		},
 		{
 			name: "structure/null section",
@@ -229,10 +229,9 @@ func shapeCases() []shapeCase {
 			want: []want{{kind: KindCollection, name: "c.g", fqn: "c.g"}},
 		},
 		{
-			name:       "structure/unknown top-level key",
-			doc:        "collection:\n  - c.g\n",
-			want:       nil,
-			divergence: "#15: ansible rejects the file outright; a typo'd section is invisible here",
+			name:    "structure/unknown top-level key",
+			doc:     "collection:\n  - c.g\n",
+			wantErr: true,
 		},
 		{
 			name:    "structure/scalar where a section belongs",
@@ -255,6 +254,10 @@ func TestShapes(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("ParseBytes: %v", err)
+			}
+
+			if len(f.Unread) != tc.wantUnread {
+				t.Errorf("Unread = %d, want %d: %+v", len(f.Unread), tc.wantUnread, f.Unread)
 			}
 
 			got := append(append([]Declaration{}, f.Collections...), f.Roles...)
@@ -324,5 +327,52 @@ func TestParseFile(t *testing.T) {
 	// opposite answers for drift, which compares against whatever it was given.
 	if _, err := Parse(filepath.Join(dir, "absent.yml")); err == nil {
 		t.Error("Parse on a missing file returned no error")
+	}
+}
+
+// Issue #15. Two file-level faults make ansible refuse the file outright, so a declaration set
+// derived from one answers a question nobody asked: every installed component reads as
+// undeclared. Rejecting matches ansible and, more importantly, is the difference between "you
+// declared nothing" and "this file does not install".
+func TestFileLevelFaultsAreRejected(t *testing.T) {
+	for name, doc := range map[string]string{
+		"empty document":                "",
+		"only whitespace":               "\n\n",
+		"typo'd section":                "collection:\n  - c.g\n",
+		"unknown key beside a good one": "roles:\n  - r.n\ncollectons:\n  - c.g\n",
+	} {
+		if _, err := ParseBytes([]byte(doc)); err == nil {
+			t.Errorf("%s: accepted a file ansible-galaxy refuses", name)
+		}
+	}
+
+	// Entry-level tolerance is unaffected — ADR-0007, and ansible is asymmetric the same way.
+	if _, err := ParseBytes([]byte("collections:\n  - name: c.g\n    zzz: 1\n")); err != nil {
+		t.Errorf("unknown key on an ENTRY must stay tolerated: %v", err)
+	}
+	// A section present but empty is not the same as no sections at all.
+	if _, err := ParseBytes([]byte("collections:\n")); err != nil {
+		t.Errorf("a null section must not be rejected: %v", err)
+	}
+}
+
+// An include names content this tool did not read. Recording it is the whole fix: a short
+// declaration set silently reports installed content as undeclared.
+func TestIncludeIsRecordedNotDropped(t *testing.T) {
+	f, err := ParseBytes([]byte("- include: more.yml\n- src: geerlingguy.postgresql\n  version: 3.5.0\n"))
+	if err != nil {
+		t.Fatalf("ParseBytes: %v", err)
+	}
+	if len(f.Roles) != 1 {
+		t.Errorf("roles = %d, want 1 (the include must not swallow the entry after it)", len(f.Roles))
+	}
+	if len(f.Unread) != 1 {
+		t.Fatalf("Unread = %+v, want one entry", f.Unread)
+	}
+	if f.Unread[0].Ref != "more.yml" {
+		t.Errorf("Unread ref = %q, want more.yml", f.Unread[0].Ref)
+	}
+	if f.Unread[0].Reason == "" {
+		t.Error("an unread reference with no reason tells a reader nothing")
 	}
 }
