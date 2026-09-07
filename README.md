@@ -124,6 +124,9 @@ ansible-bom lock --requirements /path/to/content > requirements.lock.yml
 # What drifted from what you declared
 ansible-bom drift -r requirements.yml /path/to/content
 
+# ...carrying git and local sources through from what you declared
+ansible-bom lock --requirements -r requirements.yml /path/to/content > requirements.lock.yml
+
 # A CycloneDX bill of materials
 ansible-bom scan /path/to/content > bom.json
 

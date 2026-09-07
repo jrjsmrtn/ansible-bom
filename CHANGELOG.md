@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`lock --requirements -r <requirements.yml>` recovers declared sources** ([#9](https://github.com/jrjsmrtn/ansible-bom/issues/9)),
+  so git- and locally-sourced components reach the projection instead of being omitted. The
+  installed tree records nothing trustworthy about where content came from; the file the operator
+  wrote does. The declaration is emitted **verbatim** — this tool does not reconstruct a source it
+  never observed. Without `-r`, behaviour is unchanged
+  - the field differs by section: collections carry `source` + `type`, roles `src` + `scm`.
+    Writing one where the other belongs produces a file that fails to install
+  - **only declarations matchable by name are usable.** A collection declared by URL has no name
+    until its artefact is fetched ([#14](https://github.com/jrjsmrtn/ansible-bom/issues/14)), so
+    it stays omitted — with its declared source now named in the omission list
+  - **a carried ref is usually not a pin.** Only a full 40-character commit SHA counts as
+    immutable; a tag can be moved or deleted upstream. Everything else is listed under
+    `CARRIED THROUGH … NOT immutably pinned`, in the file and on stderr, because a reinstall
+    follows the ref rather than reproducing this tree
+  - `-r` without `--requirements` is a usage error, not a silent no-op
+
 ### Changed
 
 - **A collection declared by path or URL no longer gets an invented name** ([#14](https://github.com/jrjsmrtn/ansible-bom/issues/14)).
