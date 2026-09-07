@@ -69,15 +69,23 @@ Note what is absent: no `src`, and no `scm`. Those are role fields.
 |---|---|
 | `src` | the identity, a URL, or a Galaxy `namespace.name` |
 | `name` | what to install it *as* — not the identity |
-| `version` | **defaults to `master`** if omitted |
+| `version` | omitted is `""` at parse time; see the note below on `master` |
 | `scm` | `git` or `hg`; defaults to `git` |
 
 Roles have no `type` and no `source`. The `scm`/`type` split is the single biggest asymmetry
 between the two sections.
 
-`version` defaulting to `master` is worth dwelling on: a role entry with no version is not
-unpinned in the way an unversioned collection is. It resolves to a branch name, which is mutable
-and may not exist.
+**The `master` default is a runtime fallback, not a parse-time one.** The schema and the CLI
+docstring both say `version` defaults to `master`, and that is misleading:
+`RoleRequirement.role_yaml_parse` sets `role['version'] = ''` when the key is absent
+(`playbook/role/requirement.py:110`). `master` appears later, in `galaxy/role.py:284`, and only
+when the Galaxy API returns no versions for the role **and** no `github_branch`. So an omitted
+version resolves to the newest version the API lists, or the project's default branch, or
+literally `master` — three different outcomes the file cannot distinguish.
+
+Either way the point stands: a role entry with no version is not unpinned the way an unversioned
+collection is. It resolves to something chosen at install time, which is mutable and may not
+exist.
 
 ## Where the running tool accepts more than the schema
 
@@ -153,6 +161,35 @@ declaration ansible cannot resolve as one this tool understands.
 **The convention is not a guarantee.** A repository whose last path segment is not
 `namespace.name` installs under a name this derivation gets wrong, and nothing in the file says
 so.
+
+## Where the parsing actually happens
+
+The schema describes the shape; these three functions decide the meaning. Read them before
+changing anything here — the file's semantics are not derivable from its structure.
+
+| Function | Location (ansible-core 2.20.0) | Does |
+|---|---|---|
+| `GalaxyCLI._parse_requirements_file` | `cli/galaxy.py:732` | picks v1/v2, rejects unknown top-level keys, routes each entry |
+| `RoleRequirement.role_yaml_parse` | `playbook/role/requirement.py:65` | normalises a role entry; the comma split lives here |
+| `RoleRequirement.repo_url_to_role_name` | `playbook/role/requirement.py:49` | derives the installed name from a URL |
+
+Three behaviours worth knowing, none of them in the schema:
+
+- **The comma separator applies to bare-string roles only.** `- ns.name,3.5.0` splits into
+  `src` + `version` (and a third field is the install-as name; more than two commas is an error).
+  The mapping `src:` path does **not** split, despite a stale comment in ansible reading
+  `# New style: { src: 'galaxy.role,version,name' }`.
+- **`repo_url_to_role_name` strips in a fixed order**: last `/` segment, then `.git`, then
+  `.tar.gz`, then everything after a `,`. Order matters — `…/r.git,v1.2.3` yields **`r.git`**,
+  because the `.git` no longer sits at the end when that check runs. It does not trim a trailing
+  slash, so `http://x/repo/` derives an **empty** name.
+- **Strictness is inverted between levels.** An unknown key on a role entry is silently dropped
+  (`VALID_SPEC_KEYS` is `name`, `role`, `scm`, `src`, `version`); an unknown key at the top level
+  is a hard error, as is an empty file.
+
+⚠ `Declaration.FQN()` **approximates** `repo_url_to_role_name` and diverges from it in four ways —
+strip order, `.tar.gz`, trailing slash, and URL detection. Tracked in
+[#13](https://github.com/jrjsmrtn/ansible-bom/issues/13).
 
 ## Bearing on #9
 
