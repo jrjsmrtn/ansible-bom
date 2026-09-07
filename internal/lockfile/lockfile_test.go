@@ -163,8 +163,14 @@ func TestRequirementsProjection(t *testing.T) {
 		t.Fatalf("Requirements: %v", err)
 	}
 
-	if omitted != 1 {
-		t.Errorf("omitted = %d, want 1", omitted)
+	if len(omitted.Unpinnable) != 1 {
+		t.Errorf("Unpinnable = %d, want 1", len(omitted.Unpinnable))
+	}
+	if len(omitted.OffGalaxy) != 1 {
+		t.Errorf("OffGalaxy = %d, want 1", len(omitted.OffGalaxy))
+	}
+	if omitted.Len() != 2 {
+		t.Errorf("Len = %d, want 2", omitted.Len())
 	}
 
 	var r struct {
@@ -174,8 +180,8 @@ func TestRequirementsProjection(t *testing.T) {
 	if err := yaml.Unmarshal(out, &r); err != nil {
 		t.Fatalf("projection is not valid YAML: %v", err)
 	}
-	if len(r.Collections) != 2 || len(r.Roles) != 1 {
-		t.Fatalf("projection = %d collections, %d roles; want 2, 1", len(r.Collections), len(r.Roles))
+	if len(r.Collections) != 1 || len(r.Roles) != 1 {
+		t.Fatalf("projection = %d collections, %d roles; want 1, 1", len(r.Collections), len(r.Roles))
 	}
 	for _, c := range append(r.Collections, r.Roles...) {
 		if c.Version == "" {
@@ -187,5 +193,87 @@ func TestRequirementsProjection(t *testing.T) {
 	// will read this file without ever seeing the tool's output.
 	if !strings.Contains(string(out), "OMITTED") || !strings.Contains(string(out), "site_common") {
 		t.Error("projection does not name the omitted component")
+	}
+}
+
+// Issue #7: a component whose origin is not galaxy was projected as a bare Galaxy requirement.
+// ansible-galaxy resolves the file as one dependency problem, so the unresolvable entry aborted
+// the whole install and NOTHING was installed — including the components that were fine.
+//
+// community.windows in the fixture is exactly that shape: versioned, tier checksummed, with a
+// digest, so it passes the unpinnable filter, and origin unknown, so Galaxy cannot resolve it.
+func TestRequirementsOmitsComponentsGalaxyCannotResolve(t *testing.T) {
+	l := New(sampleInventory(), "t", nil)
+	out, omitted, err := Requirements(l)
+	if err != nil {
+		t.Fatalf("Requirements: %v", err)
+	}
+
+	var r struct {
+		Collections []struct{ Name, Version string } `yaml:"collections"`
+		Roles       []struct{ Name, Version string } `yaml:"roles"`
+	}
+	if err := yaml.Unmarshal(out, &r); err != nil {
+		t.Fatalf("projection is not valid YAML: %v", err)
+	}
+
+	// Nothing that Galaxy cannot resolve may appear as a requirement.
+	byName := map[string]bool{}
+	for _, c := range append(r.Collections, r.Roles...) {
+		byName[c.Name] = true
+	}
+	for _, e := range append(append([]Entry{}, l.Collections...), l.Roles...) {
+		emitted := byName[e.Name]
+		installable := e.Origin == galaxyOrigin
+		if emitted != installable {
+			t.Errorf("%s: origin %q, emitted as a requirement = %v, want %v",
+				e.Name, e.Origin, emitted, installable)
+		}
+	}
+
+	// ...and it must be reported rather than dropped, in both channels.
+	if len(omitted.OffGalaxy) != 1 || omitted.OffGalaxy[0].Name != "community.windows" {
+		t.Fatalf("OffGalaxy = %+v, want community.windows", omitted.OffGalaxy)
+	}
+	if !strings.Contains(string(out), "community.windows 3.0.1 (origin: unknown)") {
+		t.Error("the file does not name the off-Galaxy component and its origin")
+	}
+	if !strings.Contains(string(out), "not installable from Galaxy by name") {
+		t.Error("the header does not explain why it was left out")
+	}
+}
+
+// The filter must key on origin alone. A component can be checksummed, versioned and carry a
+// digest — every signal of being well-known — and still be unresolvable by name.
+func TestRequirementsFilterKeysOnOriginNotAssurance(t *testing.T) {
+	for _, tc := range []struct {
+		origin  string
+		emitted bool
+	}{
+		{"galaxy", true},
+		{"git", false},
+		{"local", false},
+		{"unknown", false},
+	} {
+		l := Lock{Collections: []Entry{{
+			Name: "ns.thing", Version: "1.0.0", Origin: tc.origin,
+			Tier: "checksummed", Digest: "sha256:abc",
+		}}}
+		out, omitted, err := Requirements(l)
+		if err != nil {
+			t.Fatalf("origin %s: Requirements: %v", tc.origin, err)
+		}
+		var r struct {
+			Collections []struct{ Name string } `yaml:"collections"`
+		}
+		if err := yaml.Unmarshal(out, &r); err != nil {
+			t.Fatalf("origin %s: not valid YAML: %v", tc.origin, err)
+		}
+		if got := len(r.Collections) == 1; got != tc.emitted {
+			t.Errorf("origin %q: emitted = %v, want %v", tc.origin, got, tc.emitted)
+		}
+		if got := len(omitted.OffGalaxy) == 0; got != tc.emitted {
+			t.Errorf("origin %q: reported as installable = %v, want %v", tc.origin, got, tc.emitted)
+		}
 	}
 }

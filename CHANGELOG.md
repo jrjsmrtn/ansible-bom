@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`lock --requirements` no longer emits components that `ansible-galaxy` cannot resolve** ([#7](https://github.com/jrjsmrtn/ansible-bom/issues/7)).
+  Components whose recorded origin is not `galaxy` were projected as bare `name`/`version` pairs.
+  `ansible-galaxy` resolves the file as one dependency problem, so a single unresolvable entry
+  aborted the whole run and **nothing** was installed — including the Galaxy-sourced collections
+  that were fine. They are now omitted, and named with their origin in both the file header and
+  on stderr. The filter keys on origin alone: a component can be versioned, checksummed and carry
+  a digest and still be unresolvable by name
+- The omission errs toward an incomplete file that installs cleanly over a complete one that
+  installs nothing. `origin: unknown` means the tree carries no install marker, not that the
+  component is definitely off-Galaxy, so a Galaxy collection with a missing marker is now omitted
+  too — announced in both channels rather than silently dropped. Carrying declared git sources
+  through from `requirements.yml` is [#9](https://github.com/jrjsmrtn/ansible-bom/issues/9)
+
 ## [0.4.1] - 2026-09-04
 
 **Additive output change.** A BOM produced by 0.4.1 carries one new object in

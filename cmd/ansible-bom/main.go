@@ -197,7 +197,7 @@ func (a *app) runLock(args []string) error {
 	lock := lockfile.New(inv, "ansible-bom "+resolveVersion(), roots)
 
 	var out []byte
-	var omitted int
+	var omitted lockfile.Omitted
 	if asRequirements {
 		out, omitted, err = lockfile.Requirements(lock)
 	} else {
@@ -227,7 +227,7 @@ func (a *app) runLock(args []string) error {
 //
 // Counts are deliberately never presented as a single total: a reader who sees "22 components"
 // will take it for "22 verified", and only some of them carry any integrity data at all.
-func report(w io.Writer, l lockfile.Lock, inv content.Inventory, omitted int, asRequirements bool) {
+func report(w io.Writer, l lockfile.Lock, inv content.Inventory, omitted lockfile.Omitted, asRequirements bool) {
 	s := l.Summary
 	fmt.Fprintf(w, "%d collection(s), %d role(s)\n", s.Collections, s.Roles)
 	fmt.Fprintf(w, "  %d pinned, %d with a content digest\n", s.Pinned, s.Checksummed)
@@ -241,9 +241,20 @@ func report(w io.Writer, l lockfile.Lock, inv content.Inventory, omitted int, as
 		for _, u := range l.Unpinnable {
 			fmt.Fprintf(w, "    %s (%s)\n", u.Name, u.Kind)
 		}
-		if asRequirements && omitted > 0 {
+		if asRequirements && len(omitted.Unpinnable) > 0 {
 			fmt.Fprintf(w, "  a tree rebuilt from this projection will be missing them\n")
 		}
+	}
+
+	// Off-Galaxy components are the failure this projection used to cause rather than report:
+	// emitted as bare Galaxy requirements, they abort the entire install (see issue #7).
+	if asRequirements && len(omitted.OffGalaxy) > 0 {
+		fmt.Fprintf(w, "  %d OMITTED from the projection (not installable from Galaxy by name):\n",
+			len(omitted.OffGalaxy))
+		for _, e := range omitted.OffGalaxy {
+			fmt.Fprintf(w, "    %s %s (origin: %s)\n", e.Name, e.Version, e.Origin)
+		}
+		fmt.Fprintf(w, "    reinstall these from their original source\n")
 	}
 
 	if len(inv.Problems) > 0 {
