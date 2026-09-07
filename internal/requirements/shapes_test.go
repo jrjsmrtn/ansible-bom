@@ -84,7 +84,7 @@ func shapeCases() []shapeCase {
 			// ansible's repo_url_to_role_name strips .git BEFORE splitting on the comma, so the
 			// .git is no longer terminal and survives: it derives "r.git", not "r".
 			want:       []want{{kind: KindCollection, name: "https://github.com/o/r.git,v1.2.3", fqn: "r", derived: true}},
-			divergence: "#13: ansible derives \"r.git\"; the comma is not a separator in a mapping value at all",
+			divergence: "#14: ansible derives NOTHING for a collection; identity comes from the fetched artefact's manifest",
 		},
 		{
 			name: "collection/type file names a path",
@@ -98,13 +98,13 @@ func shapeCases() []shapeCase {
 			name:       "collection/tarball URL keeps its suffix",
 			doc:        "collections:\n  - name: http://x/role.tar.gz\n",
 			want:       []want{{kind: KindCollection, name: "http://x/role.tar.gz", fqn: "role.tar.gz", derived: true}},
-			divergence: "#13: repo_url_to_role_name strips .tar.gz, deriving \"role\"",
+			divergence: "#14: a derived collection name is this tool's invention; ansible reads the manifest",
 		},
 		{
 			name:       "collection/URL with trailing slash",
 			doc:        "collections:\n  - name: http://x/repo/\n",
 			want:       []want{{kind: KindCollection, name: "http://x/repo/", fqn: "repo", derived: true}},
-			divergence: "#13: ansible does not trim the slash, so it derives an EMPTY name",
+			divergence: "#14: same — no upstream derivation exists to be faithful to",
 		},
 
 		// ---- roles -------------------------------------------------------------------
@@ -144,8 +144,7 @@ func shapeCases() []shapeCase {
 			doc:  "roles:\n  - geerlingguy.postgresql,3.5.0\n",
 			// role_yaml_parse splits src[,version[,name]] for a bare STRING role. This is the one
 			// path where the comma really is ansible's separator, and the one we do not implement.
-			want:       []want{{kind: KindRole, name: "geerlingguy.postgresql,3.5.0", fqn: "geerlingguy.postgresql,3.5.0"}},
-			divergence: "#13: ansible splits this into src=geerlingguy.postgresql version=3.5.0",
+			want: []want{{kind: KindRole, name: "geerlingguy.postgresql", fqn: "geerlingguy.postgresql", version: "3.5.0", source: "geerlingguy.postgresql"}},
 		},
 		{
 			name: "role/old-style role key",
@@ -153,6 +152,44 @@ func shapeCases() []shapeCase {
 			// `role:` is an alias for `name` and is in ansible's VALID_SPEC_KEYS.
 			want:       nil,
 			divergence: "#15: dropped silently; ansible reads it as name=legacy.alias",
+		},
+
+		{
+			name: "role/three-field bare string",
+			doc:  "roles:\n  - geerlingguy.postgresql,3.5.0,pgrole\n",
+			// src,version,name — the third field is the install-as name, so it is the identity.
+			want: []want{{kind: KindRole, name: "pgrole", fqn: "pgrole", version: "3.5.0", source: "geerlingguy.postgresql"}},
+		},
+		{
+			name: "role/too many commas is left unsplit",
+			doc:  "roles:\n  - a,b,c,d\n",
+			// AnsibleError there. Recorded whole rather than failing the file, so it matches
+			// nothing installed.
+			want: []want{{kind: KindRole, name: "a,b,c,d", fqn: "a,b,c,d"}},
+		},
+		{
+			name: "role/comma after .git survives the strip order",
+			doc:  "roles:\n  - src: https://github.com/o/r.git,v1.2.3\n",
+			// repo_url_to_role_name strips .git BEFORE the comma split, so .git is not terminal
+			// when that check runs and survives into the name.
+			want: []want{{kind: KindRole, name: "https://github.com/o/r.git,v1.2.3", fqn: "r.git", source: "https://github.com/o/r.git,v1.2.3", derived: true}},
+		},
+		{
+			name: "role/tarball URL loses its suffix",
+			doc:  "roles:\n  - src: http://x/role.tar.gz\n",
+			want: []want{{kind: KindRole, name: "http://x/role.tar.gz", fqn: "role", source: "http://x/role.tar.gz", derived: true}},
+		},
+		{
+			name: "role/trailing slash derives an empty name",
+			doc:  "roles:\n  - src: http://x/repo/\n",
+			// No trailing-slash trim upstream, so the last segment is empty. Reproduced.
+			want: []want{{kind: KindRole, name: "http://x/repo/", fqn: "", source: "http://x/repo/", derived: true}},
+		},
+		{
+			name: "role/scp-style remote is a URL",
+			doc:  "roles:\n  - src: git@host:path/r.git\n",
+			// ansible's test is `'://' in s or '@' in s`, which catches this form.
+			want: []want{{kind: KindRole, name: "git@host:path/r.git", fqn: "r", source: "git@host:path/r.git", derived: true}},
 		},
 
 		// ---- structure ---------------------------------------------------------------

@@ -55,11 +55,25 @@ func TestFQN(t *testing.T) {
 		wantFQN     string
 		wantDerived bool
 	}{
-		{"plain name", Declaration{Name: "community.general"}, "community.general", false},
-		{"git+file url", Declaration{Name: "git+file:///srv/src/example.widget/"}, "example.widget", true},
-		{"git https with .git", Declaration{Name: "git+https://example.com/org/example.widget.git"}, "example.widget", true},
-		{"git url with ansible's comma version", Declaration{Name: "git+https://example.com/org/example.widget.git,1.2.3"}, "example.widget", true},
-		{"scp-style", Declaration{Name: "git@example.com:org/example.widget.git"}, "example.widget", true},
+		// Roles: ansible's repo_url_to_role_name, ported faithfully (issue #13).
+		{"role/plain name", Declaration{Kind: KindRole, Name: "community.general"}, "community.general", false},
+		// Trailing slash: no trim upstream, so the last segment is empty. Verified by calling
+		// ansible's own repo_url_to_role_name on this exact string (ansible-core 2.20.0).
+		{"role/git+file url with trailing slash", Declaration{Kind: KindRole, Name: "git+file:///srv/src/example.widget/"}, "", true},
+		{"role/git https with .git", Declaration{Kind: KindRole, Name: "git+https://example.com/org/example.widget.git"}, "example.widget", true},
+		// The comma follows the .git strip, so .git is not terminal by then and survives. This
+		// looks wrong and is what ansible does; drift compares against what ansible installed.
+		{"role/comma after .git keeps it", Declaration{Kind: KindRole, Name: "git+https://example.com/org/example.widget.git,1.2.3"}, "example.widget.git", true},
+		{"role/scp-style", Declaration{Kind: KindRole, Name: "git@example.com:org/example.widget.git"}, "example.widget", true},
+		{"role/tarball", Declaration{Kind: KindRole, Name: "https://example.com/org/example.widget.tar.gz"}, "example.widget", true},
+		{"role/trailing slash is empty", Declaration{Kind: KindRole, Name: "https://example.com/org/repo/"}, "", true},
+
+		// Collections: ansible derives NOTHING here — when `name` is not a valid FQCN it becomes
+		// None and identity comes from the fetched artefact's manifest. What follows is this
+		// tool's own derivation, asserted so a change to it is deliberate. See issue #14.
+		{"collection/plain name", Declaration{Kind: KindCollection, Name: "community.general"}, "community.general", false},
+		{"collection/git+file url (ours, not ansible's)", Declaration{Kind: KindCollection, Name: "git+file:///srv/src/example.widget/"}, "example.widget", true},
+		{"collection/comma stripped (ours, not ansible's)", Declaration{Kind: KindCollection, Name: "git+https://example.com/org/example.widget.git,1.2.3"}, "example.widget", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

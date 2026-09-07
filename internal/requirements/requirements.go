@@ -119,6 +119,9 @@ func declaration(n yaml.Node, kind Kind) (Declaration, bool) {
 		if n.Value == "" {
 			return Declaration{}, false
 		}
+		if kind == KindRole {
+			return bareRole(n.Value)
+		}
 		return Declaration{Kind: kind, Name: n.Value}, true
 	case yaml.MappingNode:
 		var e entry
@@ -146,22 +149,59 @@ func declaration(n yaml.Node, kind Kind) (Declaration, bool) {
 	return Declaration{}, false
 }
 
+// bareRole parses a role given as a bare string, where ansible's comma form applies:
+//
+//	role_name[,version[,name]]
+//
+// This is the ONLY path on which the comma is a separator. RoleRequirement.role_yaml_parse
+// splits it for a string entry and not for a mapping `src`, despite a comment in ansible itself
+// claiming otherwise (`# New style: { src: 'galaxy.role,version,name' }`). A comma in a mapping
+// `src` is passed through whole and resolves to nonsense — verified against ansible-core 2.20.0.
+//
+// More than two commas is an AnsibleError there. This tool inventories rather than lints, so it
+// records the entry unsplit instead of failing the whole file; the name will not match anything
+// installed, which is the honest outcome for a declaration ansible would reject.
+func bareRole(v string) (Declaration, bool) {
+	d := Declaration{Kind: KindRole, Name: v}
+	if strings.Count(v, ",") > 2 {
+		// AnsibleError there: "Invalid role line (%s). Proper format is
+		// 'role_name[,version[,name]]'". Recorded unsplit rather than failing the file, so the
+		// name matches nothing installed — the honest outcome for an entry ansible rejects.
+		return d, true
+	}
+	switch parts := strings.SplitN(v, ",", 3); len(parts) {
+	case 2:
+		// src,version
+		d.Source, d.Version = parts[0], parts[1]
+		d.Name = parts[0]
+	case 3:
+		// src,version,name — the third field is what it installs AS, so it is the identity,
+		// matching the mapping path where `name` wins over `src`.
+		d.Source, d.Version, d.Name = parts[0], parts[1], parts[2]
+	}
+	return d, true
+}
+
 // FQN is the name the declared content will install under.
 //
-// Most declarations name content directly. Entries given as a git URL do not: the URL's last
-// path segment is conventionally "<namespace>.<name>", which is what ansible-galaxy installs it
-// as. That derivation is a convention rather than a guarantee, so IsDerived reports when it was
-// used and callers can qualify what they claim.
+// For ROLES this ports ansible's RoleRequirement.repo_url_to_role_name faithfully, quirks
+// included, because drift compares against what ansible actually installed — reproducing its
+// surprises is the point, not a bug to smooth over. See ADR-0007 and issue #13.
+//
+// For COLLECTIONS ansible derives nothing. When a collection's `name` is not a valid FQCN,
+// Requirement.from_requirement_dict sets it to None and the identity comes from the fetched
+// artefact's own galaxy.yml or MANIFEST.json — which this tool never fetches. The derivation
+// below is therefore ours, not ansible's, and is tracked as issue #14. It is left in place so
+// this change stays scoped to roles; do not read it as upstream behaviour.
 func (d Declaration) FQN() string {
+	if d.Kind == KindRole {
+		return repoURLToRoleName(d.Name)
+	}
 	if !d.isURL() {
 		return d.Name
 	}
+	// NOT ansible's algorithm — see the note above and issue #14.
 	s := strings.TrimSuffix(strings.TrimSpace(d.Name), "/")
-	// Strip anything after a ",". NOTE: this convention is COMMAND-LINE only —
-	// `ansible-galaxy role install ns.name,version` works, but a comma in a requirements
-	// file's `src` is URL-encoded and resolves to nonsense (verified, ansible-core 2.20.0).
-	// Deriving a clean name here therefore dresses a broken declaration up as a valid one.
-	// See issue #13 and docs/reference/requirements-formats.md.
 	if i := strings.Index(s, ","); i >= 0 {
 		s = s[:i]
 	}
@@ -172,9 +212,53 @@ func (d Declaration) FQN() string {
 	return s
 }
 
-// IsDerived reports whether FQN was inferred from a URL rather than declared outright.
-func (d Declaration) IsDerived() bool { return d.isURL() }
+// repoURLToRoleName mirrors ansible's RoleRequirement.repo_url_to_role_name
+// (playbook/role/requirement.py:49, ansible-core 2.20.0):
+//
+//	if '://' not in repo_url and '@' not in repo_url:
+//	    return repo_url
+//	trailing_path = repo_url.split('/')[-1]
+//	if trailing_path.endswith('.git'):     trailing_path = trailing_path[:-4]
+//	if trailing_path.endswith('.tar.gz'):  trailing_path = trailing_path[:-7]
+//	if ',' in trailing_path:               trailing_path = trailing_path.split(',')[0]
+//	return trailing_path
+//
+// The ORDER is load-bearing and produces two results that look like bugs and are not:
+//
+//   - ".../r.git,v1.2.3" yields "r.git". The .git is not terminal when that check runs, so it
+//     survives, and only the comma suffix is removed.
+//   - ".../repo/" yields "". There is no trailing-slash trim, so the last segment is empty.
+//
+// Both are reproduced deliberately. A name this tool derives differently from ansible is a name
+// that will not match what is installed, which is worse than an odd-looking one that does.
+func repoURLToRoleName(name string) string {
+	if !strings.Contains(name, "://") && !strings.Contains(name, "@") {
+		return name
+	}
+	trailing := name
+	if i := strings.LastIndex(trailing, "/"); i >= 0 {
+		trailing = trailing[i+1:]
+	}
+	trailing = strings.TrimSuffix(trailing, ".git")
+	trailing = strings.TrimSuffix(trailing, ".tar.gz")
+	if i := strings.Index(trailing, ","); i >= 0 {
+		trailing = trailing[:i]
+	}
+	return trailing
+}
 
+// IsDerived reports whether FQN was inferred rather than declared outright.
+//
+// For roles this is ansible's own test — a string containing "://" or "@" is treated as a URL,
+// which catches scp-style remotes such as "git@host:path/r.git".
+func (d Declaration) IsDerived() bool {
+	if d.Kind == KindRole {
+		return strings.Contains(d.Name, "://") || strings.Contains(d.Name, "@")
+	}
+	return d.isURL()
+}
+
+// isURL is the collection-side test, and is not ansible's. See FQN and issue #14.
 func (d Declaration) isURL() bool {
 	n := d.Name
 	return strings.HasPrefix(n, "git+") ||
