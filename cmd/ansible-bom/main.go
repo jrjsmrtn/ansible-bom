@@ -300,6 +300,7 @@ func (a *app) runDrift(args []string) error {
 
 	rep := drift.Compare(inv, req)
 	reportDrift(a.stdout, rep, reqPath)
+	reportUnread(a.stderr, req)
 
 	if failOnDrift && !rep.Reproducible() {
 		return fmt.Errorf("this control node cannot be reproduced from %s", reqPath)
@@ -319,6 +320,21 @@ var driftHeadings = []struct {
 	{drift.KindMissing, "Declared but not installed"},
 	{drift.KindUnpinned, "Declared without an exact version"},
 	{drift.KindFirstParty, "First-party content (not drift)"},
+}
+
+// reportUnread names content the requirements file references that was not read. It goes to
+// stderr, beside the other caveats, because a drift report computed from an incomplete
+// declaration set will call installed content undeclared — a finding that is an artefact of the
+// gap rather than of the estate (issue #15).
+func reportUnread(w io.Writer, req requirements.File) {
+	if len(req.Unread) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "%d reference(s) in %s were NOT read:\n", len(req.Unread), req.Path)
+	for _, u := range req.Unread {
+		fmt.Fprintf(w, "  %s — %s\n", u.Ref, u.Reason)
+	}
+	fmt.Fprintf(w, "  anything declared there is reported here as undeclared\n")
 }
 
 func reportDrift(w io.Writer, rep drift.Report, reqPath string) {

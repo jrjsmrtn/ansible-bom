@@ -12,6 +12,7 @@ package requirements
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -50,12 +51,26 @@ type File struct {
 	Path        string
 	Collections []Declaration
 	Roles       []Declaration
+
+	// Unread is content the file references that this tool did not read. It is recorded rather
+	// than dropped: a declaration set that is silently short reports installed content as
+	// undeclared, which is a wrong answer dressed as a finding (issue #15).
+	Unread []Unread
+}
+
+// Unread is a reference this tool did not follow.
+type Unread struct {
+	Ref    string
+	Reason string
 }
 
 // entry covers every shape an entry may take in either section. Entries may also be bare
 // strings, handled before decoding into this.
 type entry struct {
-	Name    string `yaml:"name"`
+	Name string `yaml:"name"`
+	// Role is the old-style alias for Name. ansible's RoleRequirement.role_yaml_parse rewrites
+	// it to `name`, and it is in VALID_SPEC_KEYS alongside the rest.
+	Role    string `yaml:"role"`
 	Src     string `yaml:"src"`
 	Version string `yaml:"version"`
 	Source  string `yaml:"source"`
@@ -89,11 +104,27 @@ func ParseBytes(raw []byte) (File, error) {
 	var seq []yaml.Node
 	if err := yaml.Unmarshal(raw, &seq); err == nil && len(seq) > 0 {
 		for _, n := range seq {
+			if inc, ok := includeRef(n); ok {
+				// ansible follows this and installs what it finds. Following it here means
+				// resolving relative paths and detecting cycles, which is a larger change;
+				// saying the content was not read costs nothing and removes a silent gap.
+				f.Unread = append(f.Unread, Unread{
+					Ref:    inc,
+					Reason: "include: is not followed; roles declared there are not compared",
+				})
+				continue
+			}
 			if d, ok := declaration(n, KindRole); ok {
 				f.Roles = append(f.Roles, d)
 			}
 		}
 		return f, nil
+	}
+
+	// A file ansible refuses is not a declaration set to compare against — a partial answer
+	// derived from it would be worse than none (issue #15).
+	if err := rejectWhatAnsibleRejects(raw); err != nil {
+		return f, err
 	}
 
 	var doc document
@@ -113,6 +144,53 @@ func ParseBytes(raw []byte) (File, error) {
 	return f, nil
 }
 
+// rejectWhatAnsibleRejects mirrors the two file-level faults GalaxyCLI._parse_requirements_file
+// raises on. Both mean ansible-galaxy will not install from this file at all, so comparing a
+// control node against it answers a question nobody asked.
+//
+// Entry-level tolerance is unaffected: unknown keys ON AN ENTRY stay ignored, per ADR-0007.
+// ansible is itself asymmetric here — it silently drops unknown role-entry keys while treating an
+// unknown top-level key as fatal.
+func rejectWhatAnsibleRejects(raw []byte) error {
+	var top map[string]yaml.Node
+	if err := yaml.Unmarshal(raw, &top); err != nil {
+		// Not a mapping; the caller's decode reports the shape error.
+		return nil
+	}
+	if len(top) == 0 {
+		// "No requirements found in file '%s'" upstream.
+		return fmt.Errorf("no requirements found: the file declares neither roles nor collections")
+	}
+	var extra []string
+	for k := range top {
+		if k != "roles" && k != "collections" {
+			extra = append(extra, k)
+		}
+	}
+	if len(extra) > 0 {
+		sort.Strings(extra)
+		// "Expecting only 'roles' and/or 'collections' as base keys" upstream. A typo'd section
+		// name lands here, and every component it declares would otherwise read as undeclared.
+		return fmt.Errorf("unknown top-level key(s) %s: ansible-galaxy accepts only 'roles' and 'collections', and refuses the file otherwise",
+			strings.Join(extra, ", "))
+	}
+	return nil
+}
+
+// includeRef reports the target of a legacy `include:` entry.
+func includeRef(n yaml.Node) (string, bool) {
+	if n.Kind != yaml.MappingNode {
+		return "", false
+	}
+	var e struct {
+		Include string `yaml:"include"`
+	}
+	if err := n.Decode(&e); err != nil || e.Include == "" {
+		return "", false
+	}
+	return e.Include, true
+}
+
 func declaration(n yaml.Node, kind Kind) (Declaration, bool) {
 	switch n.Kind {
 	case yaml.ScalarNode:
@@ -129,11 +207,9 @@ func declaration(n yaml.Node, kind Kind) (Declaration, bool) {
 			return Declaration{}, false
 		}
 		// The roles section names its identity field `src`; collections use `name`. Both
-		// appear in the wild in either section.
-		name := e.Name
-		if name == "" {
-			name = e.Src
-		}
+		// appear in the wild in either section. `role` is the old-style alias ansible rewrites
+		// to `name` (issue #15) and comes last, matching that precedence.
+		name := firstNonEmpty(e.Name, e.Src, e.Role)
 		if name == "" {
 			return Declaration{}, false
 		}

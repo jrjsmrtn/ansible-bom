@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `requirements.yml` this tool cannot fully read now says so** ([#15](https://github.com/jrjsmrtn/ansible-bom/issues/15)).
+  Four cases, all silent before, and all of them made `drift` report installed content as
+  undeclared — a finding that was an artefact of the gap rather than of the estate:
+  - `role:`, the old-style alias for `name`, is now read. It is in ansible's `VALID_SPEC_KEYS`
+    and was dropped because the entry carried neither `name` nor `src`
+  - a legacy `include:` is **recorded as unread** and named on stderr. Following it means
+    resolving relative paths and detecting cycles; saying the content was not read costs nothing
+  - an **empty file** and an **unknown top-level key** are now errors, matching ansible, which
+    refuses to install from either. A typo'd `collection:` is the case that matters — every
+    collection it declares would otherwise read as undeclared
+  - entry-level tolerance is unchanged (ADR-0007): unknown keys **on an entry** are still
+    ignored. Ansible is asymmetric the same way — it drops unknown role-entry keys silently while
+    treating an unknown top-level key as fatal
+
 - **Role names are now derived exactly as `ansible-galaxy` derives them** ([#13](https://github.com/jrjsmrtn/ansible-bom/issues/13)).
   `FQN()` approximated `RoleRequirement.repo_url_to_role_name` and diverged in four ways: strip
   order, `.tar.gz`, trailing slash, and URL detection. It is now a faithful port — **quirks
