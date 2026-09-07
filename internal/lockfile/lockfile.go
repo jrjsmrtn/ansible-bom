@@ -10,6 +10,7 @@
 package lockfile
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -78,8 +79,10 @@ type Summary struct {
 	Problems    int `yaml:"problems"`
 }
 
-// unpinnableReason explains why a component carries no version.
-const unpinnableReason = "no version recorded on disk: not installed from Galaxy, and its metadata declares none"
+// unpinnableReason explains why a component carries no version. Kept short enough that the
+// emitted line stays within the 88-character limit yamllint applies by default: a lockfile that
+// a linter flags is one every consumer has to add an exemption for (issue #8).
+const unpinnableReason = "not installed from Galaxy, and declares no version"
 
 // New builds a Lock from an inventory.
 func New(inv content.Inventory, generatedBy string, roots []string) Lock {
@@ -164,32 +167,65 @@ func ContentDigest(c content.Component) string {
 // where a reader will actually see them.
 const header = `# ansible-bom lockfile — the content installed on this control node, as it stands.
 #
-# Regenerate with 'ansible-bom lock'. Do not hand-edit: it describes observed state, not intent.
-# Your requirements.yml remains the file you edit.
+# Regenerate with 'ansible-bom lock'. Do not hand-edit: it describes observed
+# state, not intent. Your requirements.yml remains the file you edit.
 #
 # What this file asserts:
 #   - the exact version of every component that had one recorded on disk
-#   - a content digest for collections, derived from the checksums recorded at install time
+#   - a content digest for collections, derived from the checksums recorded
+#     at install time
 #
 # What it does NOT assert:
-#   - that any component is free of known vulnerabilities. No vulnerability database indexes
-#     Ansible collections or roles; an empty result from one is not evidence of anything.
-#   - integrity for roles. Roles carry no checksums anywhere — this is a property of the
-#     ecosystem, not a limitation of this tool.
-#   - completeness, where an 'unpinnable' section is present: that content exists but cannot
-#     be pinned, and a rebuild from this file will not reproduce it.
+#   - that any component is free of known vulnerabilities. No vulnerability
+#     database indexes Ansible collections or roles; an empty result from one
+#     is not evidence of anything.
+#   - integrity for roles. Roles carry no checksums anywhere — this is a
+#     property of the ecosystem, not a limitation of this tool.
+#   - completeness, where an 'unpinnable' section is present: that content
+#     exists but cannot be pinned, and a rebuild from this file will not
+#     reproduce it.
 `
 
 // Marshal renders the lockfile.
+//
+// The output is yamllint-clean at its default settings (issue #8): a document start marker, no
+// line over 88 characters, and two-space indentation so a nested mapping under a sequence item
+// indents relative to its parent key. A generated file that a linter flags is one every consumer
+// has to write an exemption for, and an exemption is easy to get wrong — naming the path
+// explicitly on the command line lints it even when the config excludes it.
 func Marshal(l Lock) ([]byte, error) {
 	var sb strings.Builder
 	sb.WriteString(header)
+	sb.WriteString("\n")
+	sb.WriteString(documentStart)
 
-	enc, err := yaml.Marshal(l)
+	enc, err := encodeYAML(l)
 	if err != nil {
 		return nil, fmt.Errorf("encoding lockfile: %w", err)
 	}
-	sb.WriteString("\n")
 	sb.Write(enc)
 	return []byte(sb.String()), nil
+}
+
+// documentStart is the YAML document marker. yamllint requires it by default, and it costs
+// nothing to emit.
+const documentStart = "---\n"
+
+// yamlIndent is two spaces, which is what makes a mapping nested under a sequence item indent
+// relative to its parent key rather than to the item dash. yaml.v3 defaults to four, which
+// yamllint reads as under-indented.
+const yamlIndent = 2
+
+// encodeYAML marshals with the settings the emitted files share.
+func encodeYAML(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(yamlIndent)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
