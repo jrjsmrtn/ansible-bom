@@ -162,3 +162,57 @@ func TestCompareTotals(t *testing.T) {
 		t.Errorf("Installed = %d, want 2", rep.Installed)
 	}
 }
+
+// Issue #14. A collection declared by path or URL has no name this tool can know, so it is
+// reported as unidentifiable rather than compared against installed content — "declared but not
+// installed" would be a fabricated finding about content that cannot be named.
+func TestUnidentifiableCollectionIsReportedNotCompared(t *testing.T) {
+	req := requirements.File{
+		Collections: []requirements.Declaration{
+			{Kind: requirements.KindCollection, Source: "git+file:///srv/src/example.widget/"},
+			{Kind: requirements.KindCollection, Name: "community.general", Version: "11.4.0"},
+		},
+	}
+	rep := Compare(content.Inventory{}, req)
+
+	var unidentifiable, missing int
+	for _, f := range rep.Findings {
+		switch f.Kind {
+		case KindUnidentifiable:
+			unidentifiable++
+			// Every finding must name something. The component was blank when this first
+			// landed, because the label came from an FQN that is empty by design.
+			if f.Component == "" {
+				t.Error("unidentifiable finding has an empty component")
+			}
+		case KindMissing:
+			missing++
+			if f.Component == "" {
+				t.Error("missing finding has an empty component")
+			}
+		}
+	}
+	if unidentifiable != 1 {
+		t.Errorf("unidentifiable findings = %d, want 1", unidentifiable)
+	}
+	// Only the FQCN one can be missing; the other cannot be looked up at all.
+	if missing != 1 {
+		t.Errorf("missing findings = %d, want 1 (only the identifiable declaration)", missing)
+	}
+}
+
+// Mutability is a property of the declaration and does not depend on identity. It regressed once:
+// Mutable() read Name, which is empty for exactly these entries.
+func TestUnidentifiableCollectionIsStillFlaggedMutable(t *testing.T) {
+	req := requirements.File{Collections: []requirements.Declaration{
+		{Kind: requirements.KindCollection, Source: "git+file:///srv/src/example.widget/"},
+	}}
+	rep := Compare(content.Inventory{}, req)
+
+	for _, f := range rep.Findings {
+		if f.Kind == KindMutableSource && f.Component != "" {
+			return
+		}
+	}
+	t.Errorf("a URL-sourced collection was not flagged as a moving target: %+v", rep.Findings)
+}

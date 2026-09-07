@@ -68,12 +68,12 @@ func TestFQN(t *testing.T) {
 		{"role/tarball", Declaration{Kind: KindRole, Name: "https://example.com/org/example.widget.tar.gz"}, "example.widget", true},
 		{"role/trailing slash is empty", Declaration{Kind: KindRole, Name: "https://example.com/org/repo/"}, "", true},
 
-		// Collections: ansible derives NOTHING here — when `name` is not a valid FQCN it becomes
-		// None and identity comes from the fetched artefact's manifest. What follows is this
-		// tool's own derivation, asserted so a change to it is deliberate. See issue #14.
+		// Collections: since issue #14 a collection Declaration either carries a valid FQCN or no
+		// name at all, so nothing is ever derived for one. A URL in Name is not a state the
+		// parser can produce any more, and the URL cases live in the shape table instead, where
+		// they go through ParseBytes.
 		{"collection/plain name", Declaration{Kind: KindCollection, Name: "community.general"}, "community.general", false},
-		{"collection/git+file url (ours, not ansible's)", Declaration{Kind: KindCollection, Name: "git+file:///srv/src/example.widget/"}, "example.widget", true},
-		{"collection/comma stripped (ours, not ansible's)", Declaration{Kind: KindCollection, Name: "git+https://example.com/org/example.widget.git,1.2.3"}, "example.widget", true},
+		{"collection/no name is not derivable", Declaration{Kind: KindCollection, Source: "git+file:///srv/src/example.widget/"}, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

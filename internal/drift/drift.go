@@ -30,6 +30,11 @@ const (
 	KindUnpinned Kind = "unpinned"
 	// KindMutableSource: declared from git or a URL with no ref, so it tracks a moving target.
 	KindMutableSource Kind = "mutable-source"
+	// KindUnidentifiable: a collection declared by something other than a namespace.name, so
+	// what it installs as cannot be known without fetching it. ansible resolves this by reading
+	// the fetched artefact's manifest; this tool never fetches, so it says so instead of
+	// guessing (issue #14).
+	KindUnidentifiable Kind = "unidentifiable"
 	// KindUnpinnable: installed with no version recorded anywhere, so it cannot be reproduced.
 	KindUnpinnable Kind = "unpinnable"
 	// KindFirstParty: content authored in this repository rather than installed from anywhere.
@@ -74,6 +79,7 @@ type Report struct {
 // sources top the list: they change under you with no version change to notice.
 var kindOrder = map[Kind]int{
 	KindMutableSource:   0,
+	KindUnidentifiable:  0,
 	KindUnpinnable:      1,
 	KindVersionMismatch: 2,
 	KindUndeclared:      3,
@@ -91,6 +97,11 @@ func Compare(inv content.Inventory, req requirements.File) Report {
 
 	declared := map[string]requirements.Declaration{}
 	for _, d := range append(append([]requirements.Declaration{}, req.Collections...), req.Roles...) {
+		// An unidentifiable declaration has an empty FQN. Keying on it would collide every such
+		// entry onto one another and onto nothing installed.
+		if !d.Identifiable() {
+			continue
+		}
 		declared[d.FQN()] = d
 	}
 
@@ -107,6 +118,14 @@ func Compare(inv content.Inventory, req requirements.File) Report {
 			ck = content.KindRole
 		}
 
+		// What to call the declaration in output. An unidentifiable collection has no name, so
+		// falling back to what the file actually said is the only way to name it at all —
+		// without this the finding prints an empty component.
+		label := fqn
+		if label == "" {
+			label = d.Source
+		}
+
 		if d.Mutable() {
 			detail := "declared from a source-control or URL source with no version or ref: " +
 				"a reinstall takes whatever the branch head is that day"
@@ -114,13 +133,27 @@ func Compare(inv content.Inventory, req requirements.File) Report {
 				detail += "; the installed name was derived from the URL by convention"
 			}
 			rep.Findings = append(rep.Findings, Finding{
-				Kind: KindMutableSource, Component: fqn, KindOf: ck, Declared: d.Name, Detail: detail,
+				Kind: KindMutableSource, Component: label, KindOf: ck, Declared: d.Name, Detail: detail,
 			})
 		} else if !d.Pinned() {
 			rep.Findings = append(rep.Findings, Finding{
-				Kind: KindUnpinned, Component: fqn, KindOf: ck, Declared: versionOrAny(d.Version),
+				Kind: KindUnpinned, Component: label, KindOf: ck, Declared: versionOrAny(d.Version),
 				Detail: "no exact version declared: a reinstall may produce a different version",
 			})
+		}
+
+		// Mutability and pinning are properties of the declaration and are reported above
+		// whether or not the content can be identified. What follows compares against an
+		// INSTALLED name, and there is none here — "declared but not installed" would be a
+		// fabricated finding about content this tool cannot name.
+		if !d.Identifiable() {
+			rep.Findings = append(rep.Findings, Finding{
+				Kind: KindUnidentifiable, Component: label, KindOf: ck,
+				Declared: versionOrAny(d.Version),
+				Detail: "declared by path or URL rather than namespace.name: what it installs as " +
+					"is recorded in the artefact, which this tool does not fetch",
+			})
+			continue
 		}
 
 		inst, ok := installed[fqn]

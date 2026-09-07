@@ -213,11 +213,20 @@ func declaration(n yaml.Node, kind Kind) (Declaration, bool) {
 		if name == "" {
 			return Declaration{}, false
 		}
+		source := firstNonEmpty(e.Source, e.Src)
+		if kind == KindCollection && !IsFQCN(name) {
+			// ansible does exactly this: Requirement.from_requirement_dict sets req_name to None
+			// when the name is not a valid FQCN, and identity comes from the fetched artefact's
+			// galaxy.yml or MANIFEST.json instead. This tool never fetches, so it has no identity
+			// to record — and a derived one would be a guess presented as a fact (issue #14).
+			source = firstNonEmpty(e.Source, e.Src, name)
+			name = ""
+		}
 		return Declaration{
 			Kind:    kind,
 			Name:    name,
 			Version: e.Version,
-			Source:  firstNonEmpty(e.Source, e.Src),
+			Source:  source,
 			Type:    e.Type,
 			SCM:     e.SCM,
 		}, true
@@ -288,6 +297,51 @@ func (d Declaration) FQN() string {
 	return s
 }
 
+// IsFQCN reports whether a string is a well-formed collection name.
+//
+// Mirrors AnsibleCollectionRef.is_valid_collection_name (ansible-core 2.20.0): exactly one dot,
+// and each half a Python identifier that is not a Python keyword.
+//
+// ⚠ Two deliberate approximations, both narrowing:
+//
+//   - Python's str.isidentifier() accepts non-ASCII identifiers; this accepts ASCII only. A
+//     collection named with non-ASCII letters is rejected here and accepted there.
+//   - Python keywords are not checked, so "if.name" passes here and fails there.
+//
+// Both make this tool call a name unidentifiable that ansible would accept, which fails toward
+// saying "I do not know" rather than toward inventing an identity.
+func IsFQCN(s string) bool {
+	ns, name, found := strings.Cut(s, ".")
+	if !found || strings.Contains(name, ".") {
+		return false
+	}
+	return isIdentifier(ns) && isIdentifier(name)
+}
+
+func isIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r == '_':
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9' && i > 0:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// Identifiable reports whether the declaration names content this tool can match against an
+// installed tree. It is false only for a collection whose name is not an FQCN, where ansible
+// resolves identity by fetching the artefact and reading its manifest.
+//
+// A caller must branch on this rather than comparing FQN(), which is empty for such an entry:
+// treating "" as a name makes every unidentifiable declaration collide with every other.
+func (d Declaration) Identifiable() bool { return d.FQN() != "" }
+
 // repoURLToRoleName mirrors ansible's RoleRequirement.repo_url_to_role_name
 // (playbook/role/requirement.py:49, ansible-core 2.20.0):
 //
@@ -326,21 +380,33 @@ func repoURLToRoleName(name string) string {
 // IsDerived reports whether FQN was inferred rather than declared outright.
 //
 // For roles this is ansible's own test — a string containing "://" or "@" is treated as a URL,
-// which catches scp-style remotes such as "git@host:path/r.git".
+// which catches scp-style remotes such as "git@host:path/r.git". For collections it is always
+// false; see the body.
 func (d Declaration) IsDerived() bool {
 	if d.Kind == KindRole {
 		return strings.Contains(d.Name, "://") || strings.Contains(d.Name, "@")
 	}
-	return d.isURL()
+	// Never true for a collection since issue #14: it either declares a valid FQCN outright, or
+	// it has no name at all and Identifiable() reports that. Nothing is inferred either way.
+	return false
 }
 
 // isURL is the collection-side test, and is not ansible's. See FQN and issue #14.
+//
+// It reads ref() rather than Name, because a collection declared by URL now carries that URL in
+// Source with Name empty. Reading Name alone made Mutable() return false for exactly the
+// declarations most likely to be mutable.
 func (d Declaration) isURL() bool {
-	n := d.Name
+	n := d.ref()
 	return strings.HasPrefix(n, "git+") ||
 		strings.Contains(n, "://") ||
 		strings.HasPrefix(n, "git@")
 }
+
+// ref is what the declaration points at: its name where it has one, otherwise its source. An
+// unidentifiable collection has no name, and every shape test on this type wants the string the
+// user actually wrote.
+func (d Declaration) ref() string { return firstNonEmpty(d.Name, d.Source) }
 
 // Pinned reports whether the declaration names one exact version.
 //
@@ -360,7 +426,8 @@ func (d Declaration) Mutable() bool {
 	if strings.TrimSpace(d.Version) != "" {
 		return false
 	}
-	return d.isURL() || d.Type == "git" || d.SCM == "git" || d.Type == "url" || d.Type == "file"
+	return d.isURL() || d.Type == "git" || d.SCM == "git" || d.Type == "url" || d.Type == "file" ||
+		d.Type == "dir" || d.Type == "subdirs"
 }
 
 func firstNonEmpty(vals ...string) string {
