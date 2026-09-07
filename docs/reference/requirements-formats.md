@@ -132,10 +132,23 @@ collections:
   - name: git+file:///srv/src/example.widget/    # installs as example.widget
 ```
 
-`Declaration.FQN()` derives it by stripping a trailing `/`, anything after a `,` (ansible's own
-version separator), and a `.git` suffix, then taking the last segment. `IsDerived()` reports when
-that derivation was used, so a caller can qualify what it claims rather than assert a name it
-inferred.
+`Declaration.FQN()` derives it by stripping a trailing `/`, anything after a `,`, and a `.git`
+suffix, then taking the last segment. `IsDerived()` reports when that derivation was used, so a
+caller can qualify what it claims rather than assert a name it inferred.
+
+⚠ **The `,` strip is wrong here, and is [#13](https://github.com/jrjsmrtn/ansible-bom/issues/13).**
+`namespace.name,version` is a **command-line** convention, not a requirements-file one. Against
+ansible-core 2.20.0:
+
+| Form | Result |
+|---|---|
+| `ansible-galaxy role install geerlingguy.postgresql,3.5.0` | installs 3.5.0 |
+| `src: geerlingguy.postgresql,3.5.0` | downloads a role named `geerlingguy.postgresql%2C3.5` — the comma is URL-encoded, never parsed |
+| `src: <git url>,3.5.0` | `fatal: repository '...,3.5.0/' not found` |
+| `src: <git url>` + `version: 3.5.0` | installs (the control) |
+
+So an entry with a comma in `src` is **broken**, and deriving a clean name from it presents a
+declaration ansible cannot resolve as one this tool understands.
 
 **The convention is not a guarantee.** A repository whose last path segment is not
 `namespace.name` installs under a name this derivation gets wrong, and nothing in the file says
