@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A collection declared by path or URL no longer gets an invented name** ([#14](https://github.com/jrjsmrtn/ansible-bom/issues/14)).
+  Ansible derives nothing here: `Requirement.from_requirement_dict` sets the name to `None` when
+  it is not a valid FQCN, and identity comes from the fetched artefact's `galaxy.yml` or
+  `MANIFEST.json`. This tool never fetches, so it now records the path or URL in `Source`, leaves
+  `Name` empty, and `drift` reports a new **"Declared, but what it installs as cannot be known
+  from the file"** finding instead of comparing against a guess. Previously it derived a name from
+  the URL's last path segment, and every such declaration read as *declared but not installed* —
+  a fabricated finding about content the tool cannot name
+- Mutability and pinning are still reported for these declarations: both are properties of the
+  declaration and do not depend on identity
+- `IsDerived()` is now always false for collections. With the above, a collection either declares
+  a valid FQCN outright or has no name at all — nothing is inferred either way
+
 ### Fixed
 
 - **A `requirements.yml` this tool cannot fully read now says so** ([#15](https://github.com/jrjsmrtn/ansible-bom/issues/15)).

@@ -314,6 +314,7 @@ var driftHeadings = []struct {
 	heading string
 }{
 	{drift.KindMutableSource, "Tracking a moving target"},
+	{drift.KindUnidentifiable, "Declared, but what it installs as cannot be known from the file"},
 	{drift.KindUnpinnable, "Cannot be pinned"},
 	{drift.KindVersionMismatch, "Installed version is not the declared one"},
 	{drift.KindUndeclared, "Installed but never declared"},

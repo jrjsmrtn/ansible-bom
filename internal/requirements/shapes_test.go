@@ -73,40 +73,54 @@ func shapeCases() []shapeCase {
 		{
 			name: "collection/type git with version",
 			doc:  "collections:\n  - name: https://github.com/o/r.git\n    type: git\n    version: main\n",
-			want: []want{{kind: KindCollection, name: "https://github.com/o/r.git", fqn: "r", version: "main", typ: "git", derived: true}},
+			want: []want{{kind: KindCollection, fqn: "", version: "main", source: "https://github.com/o/r.git", typ: "git"}},
 		},
 		{
 			name: "collection/git URL as name",
 			doc:  "collections:\n  - name: git+file:///srv/src/example.widget/\n",
-			want: []want{{kind: KindCollection, name: "git+file:///srv/src/example.widget/", fqn: "example.widget", derived: true}},
+			want: []want{{kind: KindCollection, fqn: "", source: "git+file:///srv/src/example.widget/"}},
 		},
 		{
 			name: "collection/git URL with comma version",
 			doc:  "collections:\n  - name: https://github.com/o/r.git,v1.2.3\n",
 			// ansible's repo_url_to_role_name strips .git BEFORE splitting on the comma, so the
 			// .git is no longer terminal and survives: it derives "r.git", not "r".
-			want:       []want{{kind: KindCollection, name: "https://github.com/o/r.git,v1.2.3", fqn: "r", derived: true}},
-			divergence: "#14: ansible derives NOTHING for a collection; identity comes from the fetched artefact's manifest",
+			want: []want{{kind: KindCollection, fqn: "", source: "https://github.com/o/r.git,v1.2.3"}},
 		},
 		{
 			name: "collection/type file names a path",
 			doc:  "collections:\n  - name: /tmp/c.tar.gz\n    type: file\n",
 			// A path is not an identity. It can never match an installed namespace.name, and
 			// derived=false tells a caller nothing is wrong.
-			want:       []want{{kind: KindCollection, name: "/tmp/c.tar.gz", fqn: "/tmp/c.tar.gz", typ: "file"}},
-			divergence: "#14: a path is reported as a confident identity",
+			want: []want{{kind: KindCollection, fqn: "", source: "/tmp/c.tar.gz", typ: "file"}},
 		},
 		{
-			name:       "collection/tarball URL keeps its suffix",
-			doc:        "collections:\n  - name: http://x/role.tar.gz\n",
-			want:       []want{{kind: KindCollection, name: "http://x/role.tar.gz", fqn: "role.tar.gz", derived: true}},
-			divergence: "#14: a derived collection name is this tool's invention; ansible reads the manifest",
+			name: "collection/tarball URL keeps its suffix",
+			doc:  "collections:\n  - name: http://x/role.tar.gz\n",
+			want: []want{{kind: KindCollection, fqn: "", source: "http://x/role.tar.gz"}},
 		},
 		{
-			name:       "collection/URL with trailing slash",
-			doc:        "collections:\n  - name: http://x/repo/\n",
-			want:       []want{{kind: KindCollection, name: "http://x/repo/", fqn: "repo", derived: true}},
-			divergence: "#14: same — no upstream derivation exists to be faithful to",
+			name: "collection/URL with trailing slash",
+			doc:  "collections:\n  - name: http://x/repo/\n",
+			want: []want{{kind: KindCollection, fqn: "", source: "http://x/repo/"}},
+		},
+
+		{
+			name: "collection/namespace that is a Python keyword",
+			doc:  "collections:\n  - name: if.name\n",
+			// ansible rejects this: is_valid_collection_name requires each half to be a
+			// non-keyword identifier. We accept it, so we record a name for a declaration
+			// ansible refuses.
+			want:       []want{{kind: KindCollection, name: "if.name", fqn: "if.name"}},
+			divergence: "#20: Python keywords are not checked by IsFQCN",
+		},
+		{
+			name: "collection/non-ASCII namespace",
+			doc:  "collections:\n  - name: ünï.çôdé\n",
+			// str.isidentifier() is Unicode-aware; the port is ASCII-only, so this lands in the
+			// unidentifiable bucket instead of being matched. Fails toward "I do not know".
+			want:       []want{{kind: KindCollection, fqn: "", source: "ünï.çôdé"}},
+			divergence: "#20: IsFQCN is ASCII-only where ansible accepts Unicode identifiers",
 		},
 
 		// ---- roles -------------------------------------------------------------------
