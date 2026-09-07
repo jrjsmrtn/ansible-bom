@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The emitted YAML now passes `yamllint` and `ansible-lint` at their defaults** ([#8](https://github.com/jrjsmrtn/ansible-bom/issues/8)),
+  for both `lock` and `lock --requirements`. Three faults: no document start marker, header
+  comment lines over 88 characters, and four-space indentation, which puts a mapping nested under
+  a sequence item at an indent yamllint reads as wrong — the one fault `ansible-lint` rated fatal
+  rather than a warning. A generated file that a linter flags is one every consumer has to write
+  an exemption for, and the exemption is easy to get wrong: naming the path on the command line
+  lints it even when the config excludes it
+- The `unpinnable` entries' `reason` string is shorter, so its emitted line also fits the
+  88-character limit. It was the only non-comment line over it
+
 - **`lock --requirements` no longer emits components that `ansible-galaxy` cannot resolve** ([#7](https://github.com/jrjsmrtn/ansible-bom/issues/7)).
   Components whose recorded origin is not `galaxy` were projected as bare `name`/`version` pairs.
   `ansible-galaxy` resolves the file as one dependency problem, so a single unresolvable entry

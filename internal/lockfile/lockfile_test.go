@@ -4,6 +4,7 @@
 package lockfile
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -145,15 +146,36 @@ func TestMarshalIsValidYAMLAndStatesItsLimits(t *testing.T) {
 	}
 
 	// The header must say what the file does not assert, where a reader will see it.
+	//
+	// Matched against the header with comment markers and line breaks flattened away: the claim
+	// is that the text says these things, not that it wraps at any particular column. Pinning the
+	// line breaks made this fail when the header was rewrapped to satisfy yamllint (issue #8),
+	// which is a false alarm about formatting dressed up as a claim about content.
+	flat := flattenComments(string(out))
 	for _, want := range []string{
 		"No vulnerability database indexes",
 		"Roles carry no checksums",
 		"unpinnable",
 	} {
-		if !strings.Contains(string(out), want) {
+		if !strings.Contains(flat, want) {
 			t.Errorf("header does not mention %q", want)
 		}
 	}
+}
+
+// flattenComments reduces a comment block to one whitespace-normalised line, so an assertion
+// about what the text SAYS is not also an assertion about where it wraps.
+func flattenComments(doc string) string {
+	var b strings.Builder
+	for _, l := range strings.Split(doc, "\n") {
+		t := strings.TrimSpace(l)
+		if !strings.HasPrefix(t, "#") {
+			continue
+		}
+		b.WriteString(strings.TrimSpace(strings.TrimPrefix(t, "#")))
+		b.WriteString(" ")
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
 }
 
 func TestRequirementsProjection(t *testing.T) {
@@ -275,5 +297,92 @@ func TestRequirementsFilterKeysOnOriginNotAssurance(t *testing.T) {
 		if got := len(omitted.OffGalaxy) == 0; got != tc.emitted {
 			t.Errorf("origin %q: reported as installable = %v, want %v", tc.origin, got, tc.emitted)
 		}
+	}
+}
+
+// Issue #8: the emitted files must pass yamllint at its defaults, so a repository that lints its
+// YAML on commit does not have to carve out an exemption for a file it must not hand-edit.
+//
+// These assert the three properties yamllint checked, in Go, so the suite catches a regression
+// without depending on yamllint being installed. The linters themselves were run against real
+// output when this landed; that is the check these encode, not replace.
+const yamlLineLimit = 88
+
+// lintFaults reports the yamllint violations these files must never carry. Line length is counted
+// in RUNES, not bytes — the headers contain em dashes, and counting bytes overstates the length
+// of exactly the lines most likely to be near the limit.
+func lintFaults(doc string) []string {
+	var faults []string
+	lines := strings.Split(doc, "\n")
+
+	sawDocStart := false
+	for i, l := range lines {
+		if n := len([]rune(l)); n > yamlLineLimit {
+			faults = append(faults, fmt.Sprintf("line %d: %d chars (limit %d)", i+1, n, yamlLineLimit))
+		}
+		if l == "---" {
+			sawDocStart = true
+			continue
+		}
+		// Content before the document start marker, comments aside, means it is misplaced.
+		if !sawDocStart && l != "" && !strings.HasPrefix(strings.TrimSpace(l), "#") {
+			faults = append(faults, fmt.Sprintf("line %d: content before the document start", i+1))
+		}
+	}
+	if !sawDocStart {
+		faults = append(faults, `missing document start "---"`)
+	}
+	return faults
+}
+
+func TestEmittedYAMLIsLintClean(t *testing.T) {
+	l := New(sampleInventory(), "ansible-bom test", []string{"/srv/content"})
+
+	lock, err := Marshal(l)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	req, _, err := Requirements(l)
+	if err != nil {
+		t.Fatalf("Requirements: %v", err)
+	}
+
+	for name, doc := range map[string]string{"lockfile": string(lock), "requirements": string(req)} {
+		for _, f := range lintFaults(doc) {
+			t.Errorf("%s: %s", name, f)
+		}
+	}
+}
+
+// Two-space indentation is what puts a mapping nested under a sequence item at an indent relative
+// to its parent key. yaml.v3 defaults to four, which yamllint reads as under-indented — the one
+// fault in issue #8 that ansible-lint rated fatal rather than a warning.
+func TestNestedMappingIndentation(t *testing.T) {
+	out, err := Marshal(New(sampleInventory(), "t", nil))
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	const want = "  - name: community.windows\n"
+	if !strings.Contains(string(out), want) {
+		t.Errorf("sequence item not indented by %d: want %q", yamlIndent, want)
+	}
+	if !strings.Contains(string(out), "    dependencies:\n      ansible.windows:") {
+		t.Error("nested mapping is not indented relative to its parent key")
+	}
+}
+
+// Proves the checker can fail, on each fault it is meant to catch.
+func TestLintFaultsRejectsBadDocuments(t *testing.T) {
+	for name, doc := range map[string]string{
+		"no document start": "version: 1\n",
+		"content first":     "version: 1\n---\n",
+		"long line":         "---\n# " + strings.Repeat("x", yamlLineLimit) + "\n",
+	} {
+		if len(lintFaults(doc)) == 0 {
+			t.Errorf("%s: accepted a document it should reject", name)
+		}
+	}
+	if f := lintFaults("# ok\n---\nversion: 1\n"); len(f) != 0 {
+		t.Errorf("rejected a clean document: %v", f)
 	}
 }
