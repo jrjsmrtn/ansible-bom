@@ -215,6 +215,24 @@ func shapeCases() []shapeCase {
 			want: []want{{kind: KindRole, name: "geerlingguy.postgresql", fqn: "geerlingguy.postgresql", version: "3.5.0", source: "geerlingguy.postgresql"}},
 		},
 		{
+			name: "structure/include in a v2 roles section",
+			doc:  "roles:\n  - include: more.yml\n  - src: geerlingguy.postgresql\n",
+			// ansible routes v1 and v2 role entries through the same parse_role_req, so it
+			// follows the include in BOTH forms. The pair of rows is the regression guard: the
+			// legacy one passing alone is what made issue #24 look covered.
+			want:       []want{{kind: KindRole, name: "geerlingguy.postgresql", fqn: "geerlingguy.postgresql", source: "geerlingguy.postgresql"}},
+			wantUnread: 1,
+		},
+		{
+			name: "structure/include is roles-only",
+			doc:  "collections:\n  - include: more.yml\n",
+			// Collections have no include directive: _init_coll_req_dict treats a non-dict as a
+			// name and from_requirement_dict has no include handling. The entry carries neither
+			// name nor src, so it is skipped — and must NOT be counted as unread content.
+			want:       nil,
+			wantUnread: 0,
+		},
+		{
 			name:       "structure/legacy include",
 			doc:        "- include: more.yml\n",
 			want:       nil,

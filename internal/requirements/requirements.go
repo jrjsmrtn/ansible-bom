@@ -104,21 +104,7 @@ func ParseBytes(raw []byte) (File, error) {
 	// The legacy form is a bare sequence of roles, with no section keys at all.
 	var seq []yaml.Node
 	if err := yaml.Unmarshal(raw, &seq); err == nil && len(seq) > 0 {
-		for _, n := range seq {
-			if inc, ok := includeRef(n); ok {
-				// ansible follows this and installs what it finds. Following it here means
-				// resolving relative paths and detecting cycles, which is a larger change;
-				// saying the content was not read costs nothing and removes a silent gap.
-				f.Unread = append(f.Unread, Unread{
-					Ref:    inc,
-					Reason: "include: is not followed; roles declared there are not compared",
-				})
-				continue
-			}
-			if d, ok := declaration(n, KindRole); ok {
-				f.Roles = append(f.Roles, d)
-			}
-		}
+		f.parseRoleEntries(seq)
 		return f, nil
 	}
 
@@ -137,12 +123,35 @@ func ParseBytes(raw []byte) (File, error) {
 			f.Collections = append(f.Collections, d)
 		}
 	}
-	for _, n := range doc.Roles {
+	f.parseRoleEntries(doc.Roles)
+	return f, nil
+}
+
+// parseRoleEntries reads the role entries of either form.
+//
+// One function for both, mirroring ansible: _parse_requirements_file calls parse_role_req for the
+// legacy bare list AND for the v2 roles: section. Two hand-written loops here is precisely what
+// let the include check cover one form and not the other (issue #24), so the fix is to remove the
+// duplication rather than to add a second copy of the check.
+//
+// Collections deliberately have no equivalent: _init_coll_req_dict treats a non-dict entry as a
+// name and Requirement.from_requirement_dict has no include handling, so `include:` is roles-only.
+func (f *File) parseRoleEntries(nodes []yaml.Node) {
+	for _, n := range nodes {
+		if inc, ok := includeRef(n); ok {
+			// ansible follows this and installs what it finds. Following it here means resolving
+			// relative paths and detecting cycles (issue #26); saying the content was not read
+			// costs nothing and removes the silent gap.
+			f.Unread = append(f.Unread, Unread{
+				Ref:    inc,
+				Reason: "include: is not followed; roles declared there are not compared",
+			})
+			continue
+		}
 		if d, ok := declaration(n, KindRole); ok {
 			f.Roles = append(f.Roles, d)
 		}
 	}
-	return f, nil
 }
 
 // rejectWhatAnsibleRejects mirrors the two file-level faults GalaxyCLI._parse_requirements_file
