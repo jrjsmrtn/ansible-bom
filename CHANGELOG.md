@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`include:` inside a v2 `roles:` section is no longer dropped silently** ([#24](https://github.com/jrjsmrtn/ansible-bom/issues/24)).
+  [#15](https://github.com/jrjsmrtn/ansible-bom/issues/15) covered only the legacy bare-list form,
+  while ansible routes both through the same `parse_role_req` and follows the include either way —
+  so the form people actually write still hid content from `drift`. The two hand-written loops
+  that allowed that are now one, mirroring ansible's own structure; the duplication was the bug,
+  so a second copy of the check would have left the same trap for the next rule. Following the
+  include, rather than reporting it, is [#26](https://github.com/jrjsmrtn/ansible-bom/issues/26)
+
 - **Collection names are checked against Python's keyword list, as ansible does** ([#20](https://github.com/jrjsmrtn/ansible-bom/issues/20)).
   `is_valid_collection_name` rejects a name whose namespace or collection half is a Python
   keyword, and this did not — so `if.name` or `class.thing` were recorded as identities for
