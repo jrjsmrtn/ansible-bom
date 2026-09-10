@@ -141,3 +141,68 @@ func TestParseBytesToleratesUnknownKeys(t *testing.T) {
 		t.Errorf("collections = %+v", f.Collections)
 	}
 }
+
+// Issue #20. The keyword clause of ansible's is_valid_collection_name is exactly portable, and it
+// is the half that misfires on names a person might write. Every hard keyword from CPython's
+// keyword.kwlist must be rejected in either half of the name.
+func TestFQCNRejectsPythonKeywords(t *testing.T) {
+	// keyword.kwlist, CPython 3.14. ⚠ A property of the interpreter running ansible, not of the
+	// collection format — ansible's own source notes that keywords differ between Pythons.
+	kwlist := []string{
+		"False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+		"continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+		"if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise",
+		"return", "try", "while", "with", "yield",
+	}
+	if len(kwlist) != len(pythonKeywords) {
+		t.Errorf("the embedded keyword list has %d entries, the test corpus %d",
+			len(pythonKeywords), len(kwlist))
+	}
+	for _, k := range kwlist {
+		if IsFQCN(k + ".name") {
+			t.Errorf("%q accepted as a namespace, but it is a Python keyword", k)
+		}
+		if IsFQCN("ns." + k) {
+			t.Errorf("%q accepted as a collection name, but it is a Python keyword", k)
+		}
+	}
+}
+
+// Soft keywords are NOT keywords to keyword.iskeyword(), so they stay legal identifiers.
+// Rejecting them would be stricter than ansible, and would put real names in the unidentifiable
+// bucket.
+func TestFQCNAcceptsSoftKeywords(t *testing.T) {
+	for _, k := range []string{"match", "case", "type", "_"} {
+		if !IsFQCN(k + ".name") {
+			t.Errorf("%q rejected as a namespace, but it is only a SOFT keyword", k)
+		}
+	}
+}
+
+func TestFQCNShape(t *testing.T) {
+	for name, want := range map[string]bool{
+		"community.general": true,
+		"ns.name":           true,
+		"_a._b":             true,
+		"Ns.Name":           true,
+		"ns_1.name_2":       true,
+		"ünï.çôdé":          true, // Unicode letters: ansible accepts these too
+		"ns.name.extra":     false,
+		"has-dash.name":     false,
+		"1ns.name":          false, // a digit cannot start an identifier
+		"ns.1name":          false,
+		"a.b ":              false,
+		"ns .name":          false,
+		"a.":                false,
+		".b":                false,
+		"a..b":              false,
+		"":                  false,
+		"nodot":             false,
+		"/tmp/c.tar.gz":     false,
+		"https://x/y.git":   false,
+	} {
+		if got := IsFQCN(name); got != want {
+			t.Errorf("IsFQCN(%q) = %v, want %v", name, got, want)
+		}
+	}
+}

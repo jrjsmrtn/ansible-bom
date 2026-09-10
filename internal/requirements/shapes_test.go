@@ -12,11 +12,16 @@ import (
 // This table is the executable counterpart to docs/reference/requirements-formats.md. The
 // reference says what the formats are; this says what this parser does with each one.
 //
-// It records CURRENT behaviour, including where that behaviour is wrong. A row whose `divergence`
-// is set does not match ansible-core 2.20.0, and the issue named there is the fix — when it lands,
-// that row's expectation changes and the field is cleared. Asserting the correct-in-principle
-// value today would leave the suite red for work nobody has started, and asserting nothing would
-// leave the divergence undetectable, which is how these got here.
+// Every row is now believed FAITHFUL to ansible-core 2.20.0. That was not true when this table
+// was written: nine rows recorded behaviour known to be wrong, each naming the issue that would
+// fix it, and a companion test refused a divergence without an issue behind it. Issues #13, #14,
+// #15 and #20 emptied the list, and that test deleted itself with the last one, as its own
+// message instructed.
+//
+// If a divergence is found again, record it the same way — assert what the parser DOES, name the
+// issue, and let the fix flip the row. Asserting the correct-in-principle value leaves the suite
+// red for work nobody has started; asserting nothing leaves the divergence undetectable, which is
+// how the first nine survived.
 //
 // Shapes come from the schema bundled with ansible-lint plus the three functions that decide
 // meaning: GalaxyCLI._parse_requirements_file, RoleRequirement.role_yaml_parse and
@@ -42,9 +47,6 @@ type shapeCase struct {
 	wantErr bool
 	// wantUnread is content the file references that the parser deliberately did not read.
 	wantUnread int
-	// divergence names the issue where this row disagrees with ansible-core 2.20.0. Empty means
-	// the row is believed faithful.
-	divergence string
 }
 
 func shapeCases() []shapeCase {
@@ -109,18 +111,17 @@ func shapeCases() []shapeCase {
 			name: "collection/namespace that is a Python keyword",
 			doc:  "collections:\n  - name: if.name\n",
 			// ansible rejects this: is_valid_collection_name requires each half to be a
-			// non-keyword identifier. We accept it, so we record a name for a declaration
-			// ansible refuses.
-			want:       []want{{kind: KindCollection, name: "if.name", fqn: "if.name"}},
-			divergence: "#20: Python keywords are not checked by IsFQCN",
+			// non-keyword identifier, so the name is unidentifiable and the file's string is
+			// kept as the source.
+			want: []want{{kind: KindCollection, fqn: "", source: "if.name"}},
 		},
 		{
 			name: "collection/non-ASCII namespace",
 			doc:  "collections:\n  - name: ünï.çôdé\n",
-			// str.isidentifier() is Unicode-aware; the port is ASCII-only, so this lands in the
-			// unidentifiable bucket instead of being matched. Fails toward "I do not know".
-			want:       []want{{kind: KindCollection, fqn: "", source: "ünï.çôdé"}},
-			divergence: "#20: IsFQCN is ASCII-only where ansible accepts Unicode identifiers",
+			// Unicode letters are accepted by both now. The residual divergence is not here: it
+			// is in the 4666 code points where Go's ID_Start and Python's XID_Start disagree,
+			// which no corpus of plausible names reaches. See isIdentifier.
+			want: []want{{kind: KindCollection, name: "ünï.çôdé", fqn: "ünï.çôdé"}},
 		},
 
 		// ---- roles -------------------------------------------------------------------
@@ -300,25 +301,6 @@ func TestShapes(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Every divergence must name an open issue, so a row cannot be marked "known wrong" without
-// somewhere to fix it. A bare note would rot into an excuse.
-func TestDivergencesNameAnIssue(t *testing.T) {
-	found := 0
-	for _, tc := range shapeCases() {
-		if tc.divergence == "" {
-			continue
-		}
-		found++
-		if tc.divergence[0] != '#' {
-			t.Errorf("%s: divergence must start with an issue reference, got %q", tc.name, tc.divergence)
-		}
-	}
-	if found == 0 {
-		t.Error("no divergences recorded — if they were all fixed, delete this test with the last one")
-	}
-	t.Logf("%d shapes diverge from ansible-core 2.20.0", found)
 }
 
 // Parse is the file-IO wrapper around ParseBytes and was the only uncovered function here.
