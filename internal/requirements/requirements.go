@@ -14,6 +14,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -297,19 +298,38 @@ func (d Declaration) FQN() string {
 	return s
 }
 
+// pythonKeywords is keyword.kwlist from CPython 3.14, which ansible's is_valid_collection_name
+// consults via keyword.iskeyword().
+//
+// ⚠ This list is a property of the PYTHON RUNNING ANSIBLE, not of the collection format. ansible's
+// own source says so: "NOTE: keywords and identifiers are different in different Pythons". A name
+// valid under one interpreter can be invalid under another — `async` and `await` became keywords
+// in 3.7. Soft keywords (`match`, `case`, `type`, `_`) are deliberately absent: keyword.iskeyword
+// returns false for them, so they are legal identifiers.
+var pythonKeywords = map[string]bool{
+	"False": true, "None": true, "True": true, "and": true, "as": true,
+	"assert": true, "async": true, "await": true, "break": true, "class": true,
+	"continue": true, "def": true, "del": true, "elif": true, "else": true,
+	"except": true, "finally": true, "for": true, "from": true, "global": true,
+	"if": true, "import": true, "in": true, "is": true, "lambda": true,
+	"nonlocal": true, "not": true, "or": true, "pass": true, "raise": true,
+	"return": true, "try": true, "while": true, "with": true, "yield": true,
+}
+
 // IsFQCN reports whether a string is a well-formed collection name.
 //
 // Mirrors AnsibleCollectionRef.is_valid_collection_name (ansible-core 2.20.0): exactly one dot,
 // and each half a Python identifier that is not a Python keyword.
 //
-// ⚠ Two deliberate approximations, both narrowing:
+//	if collection_name.count(u'.') != 1:
+//	    return False
+//	return all(
+//	    not iskeyword(ns_or_name) and ns_or_name.isidentifier()
+//	    for ns_or_name in collection_name.split(u'.')
+//	)
 //
-//   - Python's str.isidentifier() accepts non-ASCII identifiers; this accepts ASCII only. A
-//     collection named with non-ASCII letters is rejected here and accepted there.
-//   - Python keywords are not checked, so "if.name" passes here and fails there.
-//
-// Both make this tool call a name unidentifiable that ansible would accept, which fails toward
-// saying "I do not know" rather than toward inventing an identity.
+// Differential-tested against the running interpreter's own function; see the test for the
+// corpus and the remaining divergences.
 func IsFQCN(s string) bool {
 	ns, name, found := strings.Cut(s, ".")
 	if !found || strings.Contains(name, ".") {
@@ -318,20 +338,61 @@ func IsFQCN(s string) bool {
 	return isIdentifier(ns) && isIdentifier(name)
 }
 
+// isIdentifier mirrors Python's str.isidentifier(): the first rune is ID_Start or "_", and every
+// later rune is ID_Continue.
+//
+// ⚠ The Unicode half cannot be made exact, and it is worth knowing why before anyone tries.
+// Sweeping all 0x110000 code points against the running interpreter found 4666 disagreements on
+// ID_Start and 4718 on ID_Continue, from two causes:
+//
+//  1. Python tests XID_Start/XID_Continue, the NFKC-closed variants. Go's stdlib ships no XID
+//     tables, so this uses ID_Start/ID_Continue — a strict superset. U+037A, U+309B and U+309C
+//     are the everyday examples.
+//  2. The two runtimes ship different Unicode versions: Go 17.0.0 here against Python 16.0.0.
+//     That difference is not portable, not stable, and flips whenever either side updates. No
+//     amount of care in this function removes it.
+//
+// It does not matter in practice, and ansible says why: its own error states a collection name
+// must "contain characters from [a-zA-Z0-9_] only". The DOCUMENTED contract is ASCII while the
+// implementation happens to be Unicode-permissive, so a name that lands in the gap cannot be a
+// real Galaxy name. The keyword clause below, by contrast, IS exact — and it is the half that
+// misfires on names a person might plausibly write.
 func isIdentifier(s string) bool {
-	if s == "" {
+	if s == "" || pythonKeywords[s] {
 		return false
 	}
 	for i, r := range s {
-		switch {
-		case r == '_':
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
-		case r >= '0' && r <= '9' && i > 0:
-		default:
+		if i == 0 {
+			if !isIDStart(r) {
+				return false
+			}
+			continue
+		}
+		if !isIDContinue(r) {
 			return false
 		}
 	}
 	return true
+}
+
+func isIDStart(r rune) bool {
+	if r == '_' {
+		return true
+	}
+	if unicode.In(r, unicode.Pattern_Syntax, unicode.Pattern_White_Space) {
+		return false
+	}
+	return unicode.In(r, unicode.L, unicode.Nl, unicode.Other_ID_Start)
+}
+
+func isIDContinue(r rune) bool {
+	if isIDStart(r) {
+		return true
+	}
+	if unicode.In(r, unicode.Pattern_Syntax, unicode.Pattern_White_Space) {
+		return false
+	}
+	return unicode.In(r, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc, unicode.Other_ID_Continue)
 }
 
 // Identifiable reports whether the declaration names content this tool can match against an

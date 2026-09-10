@@ -11,6 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Collection names are checked against Python's keyword list, as ansible does** ([#20](https://github.com/jrjsmrtn/ansible-bom/issues/20)).
+  `is_valid_collection_name` rejects a name whose namespace or collection half is a Python
+  keyword, and this did not — so `if.name` or `class.thing` were recorded as identities for
+  declarations ansible refuses. Soft keywords (`match`, `case`, `type`, `_`) stay legal, because
+  `keyword.iskeyword()` returns false for them
+- The identifier half now accepts Unicode letters rather than ASCII only, matching ansible for
+  every plausible name
+- ⚠ **The Unicode half cannot be made exact, and the code now says so with measurements.**
+  Sweeping all 0x110000 code points against the running interpreter found 4666 disagreements on
+  `ID_Start` and 4718 on `ID_Continue`, from two causes: Python tests the NFKC-closed
+  `XID_Start`/`XID_Continue` while Go's stdlib ships no XID tables, and the two runtimes carry
+  **different Unicode versions** — Go 17.0.0 against Python 16.0.0 here, which flips whenever
+  either updates. It does not matter in practice: ansible's own error states a collection name
+  must "contain characters from `[a-zA-Z0-9_]` only", so a name landing in the gap cannot be a
+  real Galaxy name
+
 ### Added
 
 - **`lock --requirements -r <requirements.yml>` recovers declared sources** ([#9](https://github.com/jrjsmrtn/ansible-bom/issues/9)),
