@@ -115,7 +115,7 @@ jobs:
       # One SBOM per binary rather than a single representative. The module set is identical
       # across platforms, but "identical, trust me" is a caveat, and a consumer verifying the
       # artefact they downloaded should not have to reason about which SBOM applies to it.
-      - uses: anchore/sbom-action/download-syft@aa80c8c5bd439a416a62804f2151ab38c671a638 # v0.24.1
+      - uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
 
       # Two deliberate choices here, both measured rather than assumed:
       #
