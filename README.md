@@ -179,6 +179,7 @@ identifiers that may still change.
 | M3 BOM | `scan` — CycloneDX output | done |
 | M4 Integrity | `verify` against recorded checksums | done |
 | M5 Upstream | syft catalogers | built; awaiting [anchore/syft#5129](https://github.com/anchore/syft/issues/5129) |
+| M6 Formulation | CycloneDX `formulation` output: record the playbook run (workflows, tasks, steps, inputs, outputs) alongside the content inventory | proposed — needs a scope ADR first, see below |
 | **v1.0** | **Gated on the `ansible` purl type being approved and implemented** | blocked upstream |
 
 Milestones are deliberately *not* version numbers. M1–M4 all shipped within v0.1.x, and release
@@ -187,6 +188,12 @@ versions track the published contract rather than this list.
 Deferred: collection signature verification, Execution Environment images as an input, TEA
 publishing. Explicitly out of scope: dependency resolution, installation, and modelling what
 playbooks deploy on managed hosts.
+
+**M6 conflicts with that last exclusion as written.** A `formulation` block that records a
+playbook run describes what was executed, which edges toward modelling what is deployed. An ADR
+must decide the boundary before any code: either `formulation` stays limited to the content and
+tooling used to produce a run (inputs only), or the exclusion is amended to admit run records.
+Nothing is emitted today.
 
 ## Contributing
 
